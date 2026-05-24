@@ -1,8 +1,5 @@
 package-as: RandomSmartMount
 
-move-folders:
-  RandomSmartMount: RandomSmartMount
-
 ignore:
   - .git
   - .github
