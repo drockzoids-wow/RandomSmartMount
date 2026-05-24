@@ -1,0 +1,8 @@
+package-as: RandomSmartMount
+
+ignore:
+  - .git
+  - .github
+  - README.md
+  - LICENSE
+  - .pkgmeta
