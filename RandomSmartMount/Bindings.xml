@@ -1,0 +1,12 @@
+<Bindings>
+    <Binding name="CLICK RandomSmartMountButton:LeftButton" category="ADDONS" header="RANDOMSMARTMOUNT">
+    </Binding>
+
+    <Binding name="CLICK RandomSmartMountVendorButton:LeftButton" category="ADDONS" header="RANDOMSMARTMOUNT">
+    </Binding>
+
+    <Binding name="CLICK RandomSmartMountAuctionHouseButton:LeftButton" category="ADDONS" header="RANDOMSMARTMOUNT">
+    </Binding>
+	<Binding name="CLICK RandomSmartMountRideAlongButton:LeftButton" category="ADDONS" header="RANDOMSMARTMOUNT">
+</Binding>
+</Bindings>
