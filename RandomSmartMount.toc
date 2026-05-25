@@ -1,9 +1,10 @@
-## Interface: 120005
+## Interface: 120001
 ## Title: Random Smart Mount
-## Notes: Smart random mount by movement, water, flying, class, and race.
+## Notes: Smart mount keybinds, service mounts, falling rescue, and balanced randomization.
 ## Author: Drockzoids
-## Version: 0.1
+## Version: @project-version@
 ## SavedVariables: RandomSmartMountDB
+## X-Curse-Project-ID: 1552801
 
 Bindings.xml
 RandomSmartMount.lua
