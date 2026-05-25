@@ -22,6 +22,18 @@ local DEFAULTS = {
     blacklist = {},
     mountUsage = {},
     lastMountID = nil,
+
+    serviceMountModes = {
+        vendor = "default",
+        auctionHouse = "default",
+        rideAlong = "default",
+    },
+
+    serviceMounts = {
+        vendor = {},
+        auctionHouse = {},
+        rideAlong = {},
+    },
 }
 
 local FLYING_MOUNT_TYPES = {
@@ -41,7 +53,7 @@ local WATER_MOUNT_TYPES = {
     [412] = true,
 }
 
-local SERVICE_MOUNT_PRIORITY = {
+RSM_SERVICE_MOUNT_PRIORITY = {
     vendor = {
         "mighty caravan brutosaur",
         "grand expedition yak",
@@ -54,8 +66,8 @@ local SERVICE_MOUNT_PRIORITY = {
         "mighty caravan brutosaur",
         "trader's gilded brutosaur",
     },
-	
-	rideAlong = {
+
+    rideAlong = {
         "sandstone drake",
         "vial of the sands",
         "x-53 touring rocket",
@@ -319,8 +331,21 @@ local function PickLeastUsedMount(mountIDs)
     return leastUsed[RandomIndex(#leastUsed)]
 end
 
+local function GetServiceMountPriorityList(serviceType)
+    local db = GetDB()
+
+    db.serviceMounts = db.serviceMounts or {}
+    db.serviceMounts[serviceType] = db.serviceMounts[serviceType] or {}
+
+    if #db.serviceMounts[serviceType] > 0 then
+        return db.serviceMounts[serviceType]
+    end
+
+    return RSM_SERVICE_MOUNT_PRIORITY[serviceType]
+end
+
 local function GetPriorityServiceMountID(serviceType)
-    local priorityList = SERVICE_MOUNT_PRIORITY[serviceType]
+    local priorityList = GetServiceMountPriorityList(serviceType)
     if not priorityList or not C_MountJournal or not C_MountJournal.GetMountIDs then
         return nil
     end
@@ -332,12 +357,10 @@ local function GetPriorityServiceMountID(serviceType)
             local name, _, _, _, isUsable, _, _, _, _, _, isCollected =
                 C_MountJournal.GetMountInfoByID(mountID)
 
-            local normalizedMountName = NormalizeMountName(name)
-
             if isCollected
                 and isUsable
                 and not IsMountBlacklisted(mountID)
-                and normalizedMountName == normalizedWanted then
+                and NormalizeMountName(name) == normalizedWanted then
 
                 return mountID, name
             end
@@ -512,6 +535,8 @@ local function SummonServiceMount(serviceType)
 
     if serviceType == "auctionHouse" then
         Print("No usable auction house mount found.")
+    elseif serviceType == "rideAlong" then
+        Print("No usable ride-along mount found.")
     else
         Print("No usable vendor mount found.")
     end
@@ -650,6 +675,9 @@ SlashCmdList["RANDOMSMARTMOUNT"] = function(msg)
         Print("UnderwaterForMounts: " .. tostring(IsPlayerUnderwaterForMounts()))
         Print("Flyable: " .. tostring(CanFlyHere()))
         Print("UsageEntries: " .. tostring(CountUsageEntries()))
+        Print("VendorMode: " .. tostring(db.serviceMountModes and db.serviceMountModes.vendor))
+        Print("AuctionHouseMode: " .. tostring(db.serviceMountModes and db.serviceMountModes.auctionHouse))
+        Print("RideAlongMode: " .. tostring(db.serviceMountModes and db.serviceMountModes.rideAlong))
         Print("Macro: " .. BuildSmartMountMacro())
         return
     end
@@ -700,20 +728,20 @@ SlashCmdList["RANDOMSMARTMOUNT"] = function(msg)
         SummonServiceMount("auctionHouse")
         return
     end
-	
-	if msg == "ridealong" or msg == "ride" then
-		SummonServiceMount("rideAlong")
-		return
-	end
+
+    if msg == "ridealong" or msg == "ride" then
+        SummonServiceMount("rideAlong")
+        return
+    end
 
     Print("/rsm debug - show current state")
     Print("/rsm macro - show current smart mount macro")
     Print("/rsm vendor - summon best owned vendor mount")
     Print("/rsm ah - summon best owned auction house mount")
+    Print("/rsm ride - summon best owned ride-along mount")
     Print("/rsm last - show last summoned mount ID")
     Print("/rsm usage - show mount usage tracking count")
     Print("/rsm resetusage - reset least-used mount tracking")
     Print("/rsm blacklistlast - blacklist last summoned mount")
     Print("/rsm clearblacklist - clear blacklist")
-	Print("/rsm ride - summon best owned ride-along mount")
 end

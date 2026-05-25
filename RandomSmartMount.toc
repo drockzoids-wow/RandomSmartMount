@@ -7,3 +7,4 @@
 
 Bindings.xml
 RandomSmartMount.lua
+Options.lua
