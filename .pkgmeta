@@ -1,8 +1,15 @@
 package-as: RandomSmartMount
 
+manual-changelog: CHANGELOG.md
+
+enable-nolib-creation: no
+
 ignore:
   - .git
   - .github
   - README.md
   - LICENSE
   - .pkgmeta
+
+curseforge:
+  project-id: 1552801
