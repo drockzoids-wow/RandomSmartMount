@@ -34,6 +34,12 @@ local DEFAULTS = {
         auctionHouse = {},
         rideAlong = {},
     },
+
+	preferredServiceMounts = {
+		vendor = nil,
+		auctionHouse = nil,
+		rideAlong = nil,
+	},
 }
 
 local FLYING_MOUNT_TYPES = {
@@ -314,56 +320,84 @@ end
 local function PickLeastUsedMount(mountIDs)
     if not mountIDs or #mountIDs == 0 then return nil end
 
-    local lowest = nil
-    local leastUsed = {}
+    local weighted = {}
+    local totalWeight = 0
 
     for _, mountID in ipairs(mountIDs) do
         local used = GetMountUsage(mountID)
+        local weight = 1 / ((used + 1) ^ 1.5)
 
-        if lowest == nil or used < lowest then
-            lowest = used
-            leastUsed = { mountID }
-        elseif used == lowest then
-            leastUsed[#leastUsed + 1] = mountID
+        weighted[#weighted + 1] = {
+            mountID = mountID,
+            weight = weight,
+        }
+
+        totalWeight = totalWeight + weight
+    end
+
+    local roll = math.random() * totalWeight
+    local running = 0
+
+    for _, entry in ipairs(weighted) do
+        running = running + entry.weight
+        if roll <= running then
+            return entry.mountID
         end
     end
 
-    return leastUsed[RandomIndex(#leastUsed)]
+    return mountIDs[RandomIndex(#mountIDs)]
 end
 
-local function GetServiceMountPriorityList(serviceType)
-    local db = GetDB()
-
-    db.serviceMounts = db.serviceMounts or {}
-    db.serviceMounts[serviceType] = db.serviceMounts[serviceType] or {}
-
-    if #db.serviceMounts[serviceType] > 0 then
-        return db.serviceMounts[serviceType]
+local function FindServiceMountByName(wantedName)
+    if not wantedName or wantedName == "" then
+        return nil
     end
 
-    return RSM_SERVICE_MOUNT_PRIORITY[serviceType]
+    local normalizedWanted = NormalizeMountName(wantedName)
+
+    for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
+        local name, _, _, _, isUsable, _, _, _, _, _, isCollected =
+            C_MountJournal.GetMountInfoByID(mountID)
+
+        if isCollected
+            and isUsable
+            and not IsMountBlacklisted(mountID)
+            and NormalizeMountName(name) == normalizedWanted then
+
+            return mountID, name
+        end
+    end
+
+    return nil
 end
 
 local function GetPriorityServiceMountID(serviceType)
-    local priorityList = GetServiceMountPriorityList(serviceType)
-    if not priorityList or not C_MountJournal or not C_MountJournal.GetMountIDs then
+    local db = GetDB()
+    db.preferredServiceMounts = db.preferredServiceMounts or {}
+
+    if not C_MountJournal or not C_MountJournal.GetMountIDs then
+        return nil
+    end
+
+    -- 1. Try selected preferred mount first.
+    local preferredName = db.preferredServiceMounts[serviceType]
+    if preferredName and preferredName ~= "" then
+        local preferredMountID, preferredMountName = FindServiceMountByName(preferredName)
+        if preferredMountID then
+            return preferredMountID, preferredMountName
+        end
+    end
+
+    -- 2. Fallback to built-in default priority.
+    local priorityList = RSM_SERVICE_MOUNT_PRIORITY[serviceType]
+    if not priorityList then
         return nil
     end
 
     for _, wantedName in ipairs(priorityList) do
-        local normalizedWanted = NormalizeMountName(wantedName)
-
-        for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
-            local name, _, _, _, isUsable, _, _, _, _, _, isCollected =
-                C_MountJournal.GetMountInfoByID(mountID)
-
-            if isCollected
-                and isUsable
-                and not IsMountBlacklisted(mountID)
-                and NormalizeMountName(name) == normalizedWanted then
-
-                return mountID, name
-            end
+        local mountID, mountName = FindServiceMountByName(wantedName)
+        if mountID then
+            return mountID, mountName
         end
     end
 
