@@ -8,6 +8,7 @@ _G["BINDING_NAME_CLICK RandomSmartMountAuctionHouseButton:LeftButton"] = "Summon
 _G["BINDING_NAME_CLICK RandomSmartMountRideAlongButton:LeftButton"] = "Summon Ride-Along Mount"
 
 RandomSmartMountDB = RandomSmartMountDB or {}
+RandomSmartMountAPI = RandomSmartMountAPI or {}
 
 local RSM = {}
 RSM.debug = false
@@ -22,31 +23,26 @@ local DEFAULTS = {
     blacklist = {},
     mountUsage = {},
     lastMountID = nil,
+	preferredMount = nil,
 
-    serviceMountModes = {
-        vendor = "default",
-        auctionHouse = "default",
-        rideAlong = "default",
+    preferredServiceMounts = {
+        vendor = nil,
+        auctionHouse = nil,
+        rideAlong = nil,
     },
-
-    serviceMounts = {
-        vendor = {},
-        auctionHouse = {},
-        rideAlong = {},
-    },
-
-	preferredServiceMounts = {
-		vendor = nil,
-		auctionHouse = nil,
-		rideAlong = nil,
-	},
 }
 
 local FLYING_MOUNT_TYPES = {
     [247] = true,
     [248] = true,
+    [254] = true,
+    [269] = true,
+    [398] = true,
     [402] = true,
+    [407] = true,
+    [412] = true,
     [424] = true,
+    [426] = true,
     [436] = true,
 }
 
@@ -203,9 +199,61 @@ local function IsPlayerMounted()
     return C_MountJournal and C_MountJournal.IsMounted and C_MountJournal.IsMounted()
 end
 
+local function GetMountName(mountID)
+    if C_MountJournal and C_MountJournal.GetMountInfoByID then
+        local name = C_MountJournal.GetMountInfoByID(mountID)
+        return name
+    end
+
+    return nil
+end
+
 local function IsMountBlacklisted(mountID)
     local db = GetDB()
     return db.blacklist and (db.blacklist[mountID] == true or db.blacklist[tostring(mountID)] == true)
+end
+
+local function SetMountBlacklisted(mountID, isBlacklisted)
+    mountID = tonumber(mountID)
+    if not mountID then return end
+
+    local db = GetDB()
+    db.blacklist = db.blacklist or {}
+
+    if isBlacklisted then
+        db.blacklist[mountID] = true
+    else
+        db.blacklist[mountID] = nil
+        db.blacklist[tostring(mountID)] = nil
+    end
+end
+
+local function GetBlacklistedMountIDs()
+    local db = GetDB()
+    local ids = {}
+    local seen = {}
+
+    for mountID, value in pairs(db.blacklist or {}) do
+        local numericID = tonumber(mountID)
+
+        if value and numericID and not seen[numericID] then
+            seen[numericID] = true
+            table.insert(ids, numericID)
+        end
+    end
+
+    table.sort(ids, function(a, b)
+        local nameA = GetMountName(a) or ""
+        local nameB = GetMountName(b) or ""
+
+        if nameA == nameB then
+            return a < b
+        end
+
+        return nameA < nameB
+    end)
+
+    return ids
 end
 
 local function GetMountTypeID(mountID)
@@ -306,6 +354,11 @@ local function RecordMountUsage(mountID)
     db.mountUsage[tostring(mountID)] = nil
 end
 
+local function ClearMountUsage()
+    local db = GetDB()
+    db.mountUsage = {}
+end
+
 local function CountUsageEntries()
     local db = GetDB()
     local count = 0
@@ -315,6 +368,51 @@ local function CountUsageEntries()
     end
 
     return count
+end
+
+local function GetTotalMountUses()
+    local db = GetDB()
+    local total = 0
+
+    for _, value in pairs(db.mountUsage or {}) do
+        total = total + tonumber(value or 0)
+    end
+
+    return total
+end
+
+local function GetSortedUsageMounts(descending)
+    local db = GetDB()
+    local entries = {}
+    local seen = {}
+
+    for mountID, count in pairs(db.mountUsage or {}) do
+        local numericID = tonumber(mountID)
+
+        if numericID and not seen[numericID] then
+            seen[numericID] = true
+
+            table.insert(entries, {
+                mountID = numericID,
+                name = GetMountName(numericID) or ("Mount " .. numericID),
+                count = tonumber(count or 0),
+            })
+        end
+    end
+
+    table.sort(entries, function(a, b)
+        if a.count == b.count then
+            return a.name < b.name
+        end
+
+        if descending then
+            return a.count > b.count
+        end
+
+        return a.count < b.count
+    end)
+
+    return entries
 end
 
 local function PickLeastUsedMount(mountIDs)
@@ -353,6 +451,10 @@ local function FindServiceMountByName(wantedName)
         return nil
     end
 
+    if not C_MountJournal or not C_MountJournal.GetMountIDs then
+        return nil
+    end
+
     local normalizedWanted = NormalizeMountName(wantedName)
 
     for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
@@ -379,7 +481,6 @@ local function GetPriorityServiceMountID(serviceType)
         return nil
     end
 
-    -- 1. Try selected preferred mount first.
     local preferredName = db.preferredServiceMounts[serviceType]
     if preferredName and preferredName ~= "" then
         local preferredMountID, preferredMountName = FindServiceMountByName(preferredName)
@@ -388,7 +489,6 @@ local function GetPriorityServiceMountID(serviceType)
         end
     end
 
-    -- 2. Fallback to built-in default priority.
     local priorityList = RSM_SERVICE_MOUNT_PRIORITY[serviceType]
     if not priorityList then
         return nil
@@ -495,6 +595,34 @@ local function GetFallingRescueAction()
     return nil
 end
 
+local function FindUsableMountByName(wantedName)
+    if not wantedName or wantedName == "" then
+        return nil
+    end
+
+    if not C_MountJournal or not C_MountJournal.GetMountIDs then
+        return nil
+    end
+
+    local normalizedWanted = NormalizeMountName(wantedName)
+
+    for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
+        local name, _, _, _, isUsable, _, _, _, _, _, isCollected =
+            C_MountJournal.GetMountInfoByID(mountID)
+
+        if name
+            and isCollected
+            and isUsable
+            and not IsMountBlacklisted(mountID)
+            and NormalizeMountName(name) == normalizedWanted then
+
+            return mountID, name
+        end
+    end
+
+    return nil
+end
+
 local function BuildSmartMountMacro()
     local db = GetDB()
 
@@ -509,7 +637,6 @@ local function BuildSmartMountMacro()
     local class = PlayerClass()
     local race = PlayerRace()
 
-    -- 1. Druid Travel Form
     if db.useDruidTravelForm and class == "DRUID" then
         local spellName = GetSpellName(db.druidTravelSpellID)
         if spellName and IsSpellKnownByPlayer(db.druidTravelSpellID) and SpellUsable(db.druidTravelSpellID) then
@@ -517,17 +644,14 @@ local function BuildSmartMountMacro()
         end
     end
 
-    -- 2. Underwater water mount
     if IsPlayerUnderwaterForMounts() then
         local mountID = PickRandomMountID()
         if mountID then
             db.lastMountID = mountID
-            RecordMountUsage(mountID)
-            return "/run C_MountJournal.SummonByID(" .. mountID .. ")"
+            return "/run C_MountJournal.SummonByID(" .. mountID .. "); RandomSmartMountAPI.RecordMountUsage(" .. mountID .. ")"
         end
     end
 
-    -- 3. Dracthyr Soar, but never underwater
     if db.useDracthyrSoar and race == "Dracthyr" and not IsPlayerUnderwaterForMounts() then
         local spellName = GetSpellName(db.dracthyrSoarSpellID)
         if CanFlyHere() and spellName and IsSpellKnownByPlayer(db.dracthyrSoarSpellID) and SpellUsable(db.dracthyrSoarSpellID) then
@@ -535,13 +659,23 @@ local function BuildSmartMountMacro()
         end
     end
 
-    -- 4. Random least-used mount selection
+	-- Preferred Smart Mount
+	-- If selected, try this mount before random selection.
+	if db.preferredMount and db.preferredMount ~= "" then
+		local preferredMountID = FindUsableMountByName(db.preferredMount)
+
+		if preferredMountID then
+			db.lastMountID = preferredMountID
+
+			return "/run C_MountJournal.SummonByID(" .. preferredMountID .. "); RandomSmartMountAPI.RecordMountUsage(" .. preferredMountID .. ")"
+		end
+	end
+
     local mountID, availableCount = PickRandomMountID()
 
     if mountID then
         db.lastMountID = mountID
-        RecordMountUsage(mountID)
-        return "/run C_MountJournal.SummonByID(" .. mountID .. ")"
+        return "/run C_MountJournal.SummonByID(" .. mountID .. "); RandomSmartMountAPI.RecordMountUsage(" .. mountID .. ")"
     end
 
     if availableCount > 0 then
@@ -648,6 +782,23 @@ rideAlongButton:HookScript("OnClick", function()
     SummonServiceMount("rideAlong")
 end)
 
+RandomSmartMountAPI.GetDB = GetDB
+RandomSmartMountAPI.Print = Print
+RandomSmartMountAPI.GetMountName = GetMountName
+RandomSmartMountAPI.GetMountUsage = GetMountUsage
+RandomSmartMountAPI.GetTotalMountUses = GetTotalMountUses
+RandomSmartMountAPI.CountUsageEntries = CountUsageEntries
+RandomSmartMountAPI.GetSortedUsageMounts = GetSortedUsageMounts
+RandomSmartMountAPI.ClearMountUsage = ClearMountUsage
+RandomSmartMountAPI.RecordMountUsage = RecordMountUsage
+RandomSmartMountAPI.IsMountBlacklisted = IsMountBlacklisted
+RandomSmartMountAPI.SetMountBlacklisted = SetMountBlacklisted
+RandomSmartMountAPI.GetBlacklistedMountIDs = GetBlacklistedMountIDs
+RandomSmartMountAPI.GetLastMountID = function()
+    return GetDB().lastMountID
+end
+RandomSmartMountAPI.NormalizeMountName = NormalizeMountName
+
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")
 frame:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -692,11 +843,8 @@ SlashCmdList["RANDOMSMARTMOUNT"] = function(msg)
     local db = GetDB()
 
     if msg == "debug" then
-        RSM.debug = not RSM.debug
-
         local fallingAction = GetFallingRescueAction()
 
-        Print("Debug is now " .. tostring(RSM.debug))
         Print("Class: " .. tostring(PlayerClass()))
         Print("Race: " .. tostring(PlayerRace()))
         Print("Outdoors: " .. tostring(IsOutdoors()))
@@ -709,9 +857,7 @@ SlashCmdList["RANDOMSMARTMOUNT"] = function(msg)
         Print("UnderwaterForMounts: " .. tostring(IsPlayerUnderwaterForMounts()))
         Print("Flyable: " .. tostring(CanFlyHere()))
         Print("UsageEntries: " .. tostring(CountUsageEntries()))
-        Print("VendorMode: " .. tostring(db.serviceMountModes and db.serviceMountModes.vendor))
-        Print("AuctionHouseMode: " .. tostring(db.serviceMountModes and db.serviceMountModes.auctionHouse))
-        Print("RideAlongMode: " .. tostring(db.serviceMountModes and db.serviceMountModes.rideAlong))
+        Print("TotalUses: " .. tostring(GetTotalMountUses()))
         Print("Macro: " .. BuildSmartMountMacro())
         return
     end
@@ -728,19 +874,20 @@ SlashCmdList["RANDOMSMARTMOUNT"] = function(msg)
 
     if msg == "usage" then
         Print("Tracked mount usage entries: " .. tostring(CountUsageEntries()))
+        Print("Total tracked mount uses: " .. tostring(GetTotalMountUses()))
         return
     end
 
     if msg == "resetusage" then
-        db.mountUsage = {}
+        ClearMountUsage()
         Print("Mount usage history reset.")
         return
     end
 
     if msg == "blacklistlast" then
         if db.lastMountID then
-            db.blacklist[db.lastMountID] = true
-            Print("Blacklisted last mount ID: " .. tostring(db.lastMountID))
+            SetMountBlacklisted(db.lastMountID, true)
+            Print("Blacklisted last mount: " .. tostring(GetMountName(db.lastMountID) or db.lastMountID))
         else
             Print("No last mount found.")
         end
@@ -775,7 +922,7 @@ SlashCmdList["RANDOMSMARTMOUNT"] = function(msg)
     Print("/rsm ride - summon best owned ride-along mount")
     Print("/rsm last - show last summoned mount ID")
     Print("/rsm usage - show mount usage tracking count")
-    Print("/rsm resetusage - reset least-used mount tracking")
+    Print("/rsm resetusage - reset weighted usage tracking")
     Print("/rsm blacklistlast - blacklist last summoned mount")
     Print("/rsm clearblacklist - clear blacklist")
 end
