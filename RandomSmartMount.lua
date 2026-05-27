@@ -18,6 +18,7 @@ local DEFAULTS = {
     useDracthyrSoar = true,
 
     druidTravelSpellID = 783,      -- Travel Form
+	druidCatFormSpellID = 768,	   -- Cat Form
     dracthyrSoarSpellID = 369536,  -- Soar
 
     blacklist = {},
@@ -630,12 +631,20 @@ local function BuildSmartMountMacro()
         return "/dismount"
     end
 
-    if not IsOutdoors() then
-        return "/run print('RandomSmartMount: You are indoors.')"
-    end
-
     local class = PlayerClass()
     local race = PlayerRace()
+
+    if not IsOutdoors() then
+        if class == "DRUID" then
+            local catFormName = GetSpellName(db.druidCatFormSpellID)
+
+            if catFormName and IsSpellKnownByPlayer(db.druidCatFormSpellID) and SpellUsable(db.druidCatFormSpellID) then
+                return "/cast " .. catFormName
+            end
+        end
+
+        return "/run print('RandomSmartMount: You are indoors.')"
+    end
 
     if db.useDruidTravelForm and class == "DRUID" then
         local spellName = GetSpellName(db.druidTravelSpellID)
