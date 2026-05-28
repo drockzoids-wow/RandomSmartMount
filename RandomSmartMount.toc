@@ -5,7 +5,19 @@
 ## Version: @project-version@
 ## SavedVariables: RandomSmartMountDB
 ## X-Curse-Project-ID: 1552801
+## Bindings: Bindings.xml
 
-Bindings.xml
+Libs\LibStub\LibStub.lua
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibDBIcon-1.0\LibDBIcon-1.0.lua
+
 RandomSmartMount.lua
 Options.lua
+UI\Theme.lua
+UI\MainWindow.lua
+UI\Minimap.lua
+UI\Pages\Statistics.lua
+UI\Pages\Preferred.lua
+UI\Pages\ServiceMounts.lua
+UI\Pages\Blacklist.lua
+UI\Pages\General.lua

@@ -4,6 +4,11 @@ manual-changelog: CHANGELOG.md
 
 enable-nolib-creation: no
 
+externals:
+  Libs/LibStub: https://repos.wowace.com/wow/libstub
+  Libs/LibDataBroker-1.1: https://repos.wowace.com/wow/libdatabroker-1-1
+  Libs/LibDBIcon-1.0: https://repos.wowace.com/wow/libdbicon-1-0
+  
 ignore:
   - .git
   - .github
