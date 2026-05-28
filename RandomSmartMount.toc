@@ -3,6 +3,7 @@
 ## Notes: Smart mount keybinds, service mounts, falling rescue, and balanced randomization.
 ## Author: Drockzoids
 ## Version: @project-version@
+## IconTexture: Interface\AddOns\RandomSmartMount\Media\rsm-icon.png
 ## SavedVariables: RandomSmartMountDB
 ## X-Curse-Project-ID: 1552801
 ## Bindings: Bindings.xml
