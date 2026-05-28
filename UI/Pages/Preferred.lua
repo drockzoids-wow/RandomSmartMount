@@ -74,7 +74,7 @@ end
 
 function RandomSmartMountUI.Pages.CreatePreferredPage(parent)
     local frame = CreateFrame("Frame", nil, parent)
-    frame:SetPoint("TOPLEFT", 220, -82)
+    frame:SetPoint("TOPLEFT", 285, -140)
     frame:SetPoint("BOTTOMRIGHT", -30, 30)
     frame:Hide()
 
@@ -84,7 +84,7 @@ function RandomSmartMountUI.Pages.CreatePreferredPage(parent)
 
     local description = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -14)
-    description:SetWidth(560)
+    description:SetWidth(480)
     description:SetJustifyH("LEFT")
     description:SetText("Choose one mount to prefer above normal random selection. If unavailable, normal smart random behavior is used.")
 

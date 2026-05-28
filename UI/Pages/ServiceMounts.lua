@@ -137,7 +137,7 @@ end
 
 function RandomSmartMountUI.Pages.CreateServiceMountsPage(parent)
     local frame = CreateFrame("Frame", nil, parent)
-    frame:SetPoint("TOPLEFT", 220, -82)
+    frame:SetPoint("TOPLEFT", 285, -140)
     frame:SetPoint("BOTTOMRIGHT", -30, 30)
     frame:Hide()
     frame.dropdowns = {}
@@ -148,7 +148,7 @@ function RandomSmartMountUI.Pages.CreateServiceMountsPage(parent)
 
     local description = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -14)
-    description:SetWidth(560)
+    description:SetWidth(480)
     description:SetJustifyH("LEFT")
     description:SetText("Choose preferred mounts for vendor, auction house, and ride-along keybinds. If unavailable, the addon falls back to the built-in priority order.")
 
@@ -177,7 +177,7 @@ function RandomSmartMountUI.Pages.CreateServiceMountsPage(parent)
 
     local note = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     note:SetPoint("TOPLEFT", resetButton, "BOTTOMLEFT", 0, -14)
-    note:SetWidth(560)
+    note:SetWidth(480)
     note:SetJustifyH("LEFT")
     note:SetText("Default Priority uses the addon’s built-in order. A selected mount is tried first, then fallback is used if that mount is unavailable.")
 

@@ -24,7 +24,7 @@ end
 
 local function CreateFallbackPanel(parent, name, text)
     local frame = CreateFrame("Frame", nil, parent)
-    frame:SetPoint("TOPLEFT", 260, -148)
+    frame:SetPoint("TOPLEFT", 260, -126)
     frame:SetPoint("BOTTOMRIGHT", -30, 30)
     frame:Hide()
 
@@ -121,7 +121,7 @@ end
 local function CreateSidebarButton(parent, text, pageName, index, iconName)
     local button = CreateFrame("Button", nil, parent)
     button:SetSize(170, 40)
-    button:SetPoint("TOPLEFT", 34, -148 - ((index - 1) * 48))
+    button:SetPoint("TOPLEFT", 52, -210 - ((index - 1) * 48))
 
     local theme = RandomSmartMountUI.Theme
 
@@ -211,20 +211,46 @@ local function CreateMainWindow()
     frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
     frame:Hide()
 
-	frame.title = frame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-	frame.title:SetPoint("LEFT", frame.TitleBg, "LEFT", 8, 0)
-	frame.title:SetText("")
+	frame.TitleText:Hide()
 
-	local mainTitle = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalHuge")
-	mainTitle:SetPoint("TOP", frame, "TOP", 0, -48)
+	-- Main Title
+	local mainTitle = frame:CreateFontString(nil, "ARTWORK")
+
+	mainTitle:SetFont(
+		"Fonts\\FRIZQT__.TTF",
+		28,
+		"OUTLINE"
+	)
+
+	mainTitle:SetPoint("TOP", frame, "TOP", 0, -65)
 	mainTitle:SetText("Random Smart Mount")
-	mainTitle:SetTextColor(1, 0.82, 0)
+	mainTitle:SetTextColor(1.0, 0.82, 0)
 
-	local subTitle = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-	subTitle:SetPoint("TOP", mainTitle, "BOTTOM", 0, -8)
+	-- Subtitle
+	local subTitle = frame:CreateFontString(nil, "ARTWORK")
+
+	subTitle:SetFont(
+		"Fonts\\FRIZQT__.TTF",
+		16,
+		"OUTLINE"
+	)
+
+	subTitle:SetPoint("TOP", mainTitle, "BOTTOM", 0, -2)
 	subTitle:SetText("Control Center")
-	subTitle:SetTextColor(1, 0.82, 0)
+	subTitle:SetTextColor(1.0, 0.82, 0)
 
+	local sidebarDivider = frame:CreateTexture(nil, "ARTWORK")
+	sidebarDivider:SetColorTexture(0.9, 0.65, 0.25, 0.35)
+	sidebarDivider:SetPoint("TOPLEFT", frame, "TOPLEFT", 250, -170)
+	sidebarDivider:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 250, 88)
+	sidebarDivider:SetWidth(1)
+
+	local dividerGlow = frame:CreateTexture(nil, "ARTWORK")
+	dividerGlow:SetColorTexture(1, 0.45, 0.1, 0.12)
+	dividerGlow:SetPoint("TOPLEFT", sidebarDivider, "TOPRIGHT", 1, 0)
+	dividerGlow:SetPoint("BOTTOMLEFT", sidebarDivider, "BOTTOMRIGHT", 1, 0)
+	dividerGlow:SetWidth(2)
+	
     RandomSmartMountUI.frame = frame
 
     for index, pageInfo in ipairs(PAGE_ORDER) do

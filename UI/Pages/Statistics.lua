@@ -12,7 +12,7 @@ end
 function RandomSmartMountUI.Pages.CreateStatisticsPage(parent)
     local frame = CreateFrame("Frame", nil, parent)
 
-    frame:SetPoint("TOPLEFT", 220, -82)
+    frame:SetPoint("TOPLEFT", 285, -140)
     frame:SetPoint("BOTTOMRIGHT", -30, 30)
     frame:Hide()
 
@@ -35,34 +35,45 @@ function RandomSmartMountUI.Pages.CreateStatisticsPage(parent)
 
     local rows = {}
 
-    local function Refresh()
-        local total = RandomSmartMountAPI.GetTotalMountUses and RandomSmartMountAPI.GetTotalMountUses() or 0
-        local entries = RandomSmartMountAPI.GetSortedUsageMounts and RandomSmartMountAPI.GetSortedUsageMounts(true) or {}
+local function Refresh()
+    local total = RandomSmartMountAPI.GetTotalMountUses and RandomSmartMountAPI.GetTotalMountUses() or 0
+    local entries = RandomSmartMountAPI.GetSortedUsageMounts and RandomSmartMountAPI.GetSortedUsageMounts(true) or {}
 
-        totalText:SetText("Total tracked mount uses: " .. tostring(total))
+    totalText:SetText("Total tracked mount uses: " .. tostring(total))
 
-        for _, row in ipairs(rows) do
-            row:Hide()
-        end
-
-        local maxRows = math.min(15, #entries)
-
-        for i = 1, maxRows do
-            local entry = entries[i]
-            local row = rows[i]
-
-            if not row then
-                row = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-                row:SetWidth(560)
-                row:SetJustifyH("LEFT")
-                rows[i] = row
-            end
-
-            row:SetPoint("TOPLEFT", listTitle, "BOTTOMLEFT", 0, -10 - ((i - 1) * 22))
-            row:SetText(i .. ". " .. entry.name .. " - " .. tostring(entry.count))
-            row:Show()
-        end
+    for _, row in ipairs(rows) do
+        row:Hide()
     end
+
+    local maxRows = math.min(20, #entries)
+
+    for i = 1, maxRows do
+        local entry = entries[i]
+        local row = rows[i]
+
+        if not row then
+            row = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
+            row:SetWidth(260)
+            row:SetJustifyH("LEFT")
+			row:SetMaxLines(1)
+            rows[i] = row
+        end
+
+        local column = i <= 10 and 1 or 2
+        local rowIndex = column == 1 and i or i - 10
+        local xOffset = column == 1 and 0 or 285
+
+        row:SetPoint("TOPLEFT", listTitle, "BOTTOMLEFT", xOffset, -10 - ((rowIndex - 1) * 22))
+        local text = i .. ". " .. entry.name .. " - " .. tostring(entry.count)
+
+		if string.len(text) > 34 then
+			text = string.sub(text, 1, 31) .. "..."
+		end
+
+		row:SetText(text)
+        row:Show()
+    end
+end
 
     resetButton:SetScript("OnClick", function()
         if RandomSmartMountAPI.ClearMountUsage then

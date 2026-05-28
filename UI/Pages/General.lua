@@ -75,7 +75,7 @@ end
 
 function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
     local frame = CreateFrame("Frame", nil, parent)
-    frame:SetPoint("TOPLEFT", 220, -82)
+    frame:SetPoint("TOPLEFT", 285, -140)
     frame:SetPoint("BOTTOMRIGHT", -30, 30)
     frame:Hide()
 
@@ -84,21 +84,34 @@ function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
     title:SetText("General")
 
     local description = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
-    description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -14)
+    description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 14, -14)
     description:SetWidth(620)
     description:SetJustifyH("LEFT")
     description:SetText("Configure core Random Smart Mount behavior.")
 
     local checkboxes = {}
 
-    local function AddSection(text, anchor, offsetY)
-        local section = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-        section:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, offsetY)
-        section:SetText(text)
-        return section
-    end
+	local function AddSection(text, anchor, offsetY)
 
-    local function AddCheckbox(label, tooltip, key, anchor, offsetY)
+		local sectionAnchor = CreateFrame("Frame", nil, frame)
+		sectionAnchor:SetSize(440, 24)
+		sectionAnchor:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, offsetY)
+
+		local section = sectionAnchor:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+		section:SetPoint("LEFT", 0, 0)
+		section:SetText(text)
+
+		local divider = sectionAnchor:CreateTexture(nil, "ARTWORK")
+		divider:SetColorTexture(1, 0.82, 0, 0.18)
+
+		divider:SetPoint("LEFT", section, "RIGHT", 12, 0)
+		divider:SetPoint("RIGHT", sectionAnchor, "RIGHT", 0, 0)
+		divider:SetHeight(1)
+
+		return sectionAnchor
+	end
+
+    local function AddCheckbox(label, tooltip, key, anchor, offsetY, indent)
         local checkbox = CreateCheckbox(
             frame,
             label,
@@ -118,20 +131,20 @@ function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
             end
         )
 
-        checkbox:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, offsetY)
+        checkbox:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", indent or 0, offsetY)
         table.insert(checkboxes, checkbox)
 
         return checkbox
     end
 
-    local coreSection = AddSection("Core Behavior", description, -24)
+    local coreSection = AddSection("Core Behavior", description, -22)
 
     local enabledBox = AddCheckbox(
         "Enable Random Smart Mount",
         "Turns Random Smart Mount behavior on or off.",
         "enabled",
         coreSection,
-        -10
+        -4, 18
     )
 
     local groundBox = AddCheckbox(
@@ -158,14 +171,14 @@ function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
         -8
     )
 
-    local classSection = AddSection("Class and Race Support", dragonBox, -24)
+	local classSection = AddSection("Class and Race Support", description, -172)
 
     local druidBox = AddCheckbox(
         "Use Druid Travel Form support",
         "Druids use Travel Form outdoors and Cat Form indoors when appropriate.",
         "useDruidTravelForm",
         classSection,
-        -10
+        -4, 18
     )
 
     local dracthyrBox = AddCheckbox(
@@ -176,14 +189,14 @@ function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
         -8
     )
 
-    local uiSection = AddSection("Interface", dracthyrBox, -24)
+    local uiSection = AddSection("Interface", description, -292)
 
     AddCheckbox(
         "Show minimap button",
         "Shows or hides the Random Smart Mount minimap launcher.",
         "showMinimapButton",
         uiSection,
-        -10
+        -4, 18
     )
 
     local function Refresh()

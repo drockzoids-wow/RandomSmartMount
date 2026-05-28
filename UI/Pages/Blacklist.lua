@@ -29,12 +29,10 @@ local function NormalizeMountName(name)
     end
 
     if not name then return "" end
-
     name = string.lower(name)
     name = name:gsub("’", "'")
     name = name:gsub("reins of the ", "")
     name = name:gsub("reins of ", "")
-
     return name
 end
 
@@ -80,19 +78,12 @@ local function MountIsBlacklisted(mountID)
     end
 
     local db = GetDB()
-
-    return db.blacklist
-        and (
-            db.blacklist[mountID] == true
-            or db.blacklist[tostring(mountID)] == true
-        )
+    return db.blacklist and (db.blacklist[mountID] == true or db.blacklist[tostring(mountID)] == true)
 end
 
 function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
-
     local frame = CreateFrame("Frame", nil, parent)
-
-    frame:SetPoint("TOPLEFT", 220, -82)
+    frame:SetPoint("TOPLEFT", 285, -140)
     frame:SetPoint("BOTTOMRIGHT", -30, 30)
     frame:Hide()
 
@@ -105,11 +96,9 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
 
     local description = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -14)
-    description:SetWidth(560)
+    description:SetWidth(620)
     description:SetJustifyH("LEFT")
-    description:SetText(
-        "Blacklisted mounts will not be selected by the smart random mount system."
-    )
+    description:SetText("Blacklisted mounts will not be selected by the smart random mount system.")
 
     local addLastButton = CreateButton(frame, "Blacklist Last Mount", 160)
     addLastButton:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -18)
@@ -136,140 +125,68 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
     searchHelp:SetJustifyH("LEFT")
     searchHelp:SetText("Type part of a mount name, then click Add.")
 
-    ------------------------------------------------------------------------
-    -- SEARCH RESULTS OVERLAY
-    ------------------------------------------------------------------------
-
-    local searchResultsContainer = CreateFrame(
-        "Frame",
-        nil,
-        frame,
-        "BackdropTemplate"
-    )
-
-    searchResultsContainer:SetPoint(
-        "TOPLEFT",
-        searchBox,
-        "BOTTOMLEFT",
-        -6,
-        -10
-    )
-
+    local searchResultsContainer = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    searchResultsContainer:SetPoint("TOPLEFT", searchBox, "BOTTOMLEFT", -6, -10)
     searchResultsContainer:SetSize(525, 40)
-
     searchResultsContainer:SetBackdrop({
         bgFile = "Interface\\Buttons\\WHITE8x8",
         edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
         tile = true,
         tileSize = 16,
         edgeSize = 12,
-        insets = {
-            left = 3,
-            right = 3,
-            top = 3,
-            bottom = 3
-        }
+        insets = { left = 3, right = 3, top = 3, bottom = 3 }
     })
-
     searchResultsContainer:SetBackdropColor(0.02, 0.02, 0.02, 1)
     searchResultsContainer:SetBackdropBorderColor(0.8, 0.65, 0.35, 0.75)
-
     searchResultsContainer:SetFrameStrata("DIALOG")
     searchResultsContainer:SetFrameLevel(80)
-
     searchResultsContainer:Hide()
 
-    local searchResultsFrame = CreateFrame(
-        "Frame",
-        nil,
-        searchResultsContainer
-    )
-
+    local searchResultsFrame = CreateFrame("Frame", nil, searchResultsContainer)
     searchResultsFrame:SetPoint("TOPLEFT", 8, -8)
-    searchResultsFrame:SetSize(540, 72)
-
+    searchResultsFrame:SetSize(500, 72)
     searchResultsFrame.rows = {}
 
-    ------------------------------------------------------------------------
-    -- BLACKLIST SECTION
-    ------------------------------------------------------------------------
-
-    local blacklistedTitle = frame:CreateFontString(
-        nil,
-        "ARTWORK",
-        "GameFontNormal"
-    )
-
-    blacklistedTitle:SetPoint(
-        "TOPLEFT",
-        searchHelp,
-        "BOTTOMLEFT",
-        0,
-        -10
-    )
-
+    local blacklistedTitle = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    blacklistedTitle:SetPoint("TOPLEFT", searchHelp, "BOTTOMLEFT", 0, -10)
     blacklistedTitle:SetText("Blacklisted Mounts")
 
-    local blacklistedScrollFrame = CreateFrame(
-        "ScrollFrame",
-        "RandomSmartMountBlacklistScrollFrame",
-        frame,
-        "UIPanelScrollFrameTemplate"
-    )
+    local blacklistedScrollFrame = CreateFrame("ScrollFrame", "RandomSmartMountBlacklistScrollFrame", frame, "UIPanelScrollFrameTemplate")
+    blacklistedScrollFrame:SetPoint("TOPLEFT", blacklistedTitle, "BOTTOMLEFT", 0, -8)
+    blacklistedScrollFrame:SetSize(500, 205)
 
-    blacklistedScrollFrame:SetPoint(
-        "TOPLEFT",
-        blacklistedTitle,
-        "BOTTOMLEFT",
-        0,
-        -8
-    )
-
-    blacklistedScrollFrame:SetSize(540, 255)
-
-    local blacklistedScrollChild = CreateFrame(
-        "Frame",
-        nil,
-        blacklistedScrollFrame
-    )
-
-    blacklistedScrollChild:SetSize(520, 1)
-
+    local blacklistedScrollChild = CreateFrame("Frame", nil, blacklistedScrollFrame)
+    blacklistedScrollChild:SetSize(480, 1)
     blacklistedScrollFrame:SetScrollChild(blacklistedScrollChild)
 
     local scrollBar = _G["RandomSmartMountBlacklistScrollFrameScrollBar"]
 
-	if scrollBar then
-		scrollBar:ClearAllPoints()
-		scrollBar:SetPoint("TOPLEFT", blacklistedScrollFrame, "TOPRIGHT", 8, -16)
-		scrollBar:SetPoint("BOTTOMLEFT", blacklistedScrollFrame, "BOTTOMRIGHT", 8, 16)
+    if scrollBar then
+        scrollBar:ClearAllPoints()
+        scrollBar:SetPoint("TOPLEFT", blacklistedScrollFrame, "TOPRIGHT", 8, -16)
+        scrollBar:SetPoint("BOTTOMLEFT", blacklistedScrollFrame, "BOTTOMRIGHT", 8, 16)
 
-		scrollBar:SetScript("OnValueChanged", function(self, value)
-			blacklistedScrollFrame:SetVerticalScroll(value)
-		end)
-	end
+        scrollBar:SetScript("OnValueChanged", function(_, value)
+            blacklistedScrollFrame:SetVerticalScroll(value)
+        end)
+    end
 
-	blacklistedScrollFrame:EnableMouseWheel(true)
-	blacklistedScrollFrame:SetScript("OnMouseWheel", function(self, delta)
-		if not scrollBar then return end
+    blacklistedScrollFrame:EnableMouseWheel(true)
+    blacklistedScrollFrame:SetScript("OnMouseWheel", function(_, delta)
+        if not scrollBar then return end
 
-		local current = scrollBar:GetValue()
-		local minValue, maxValue = scrollBar:GetMinMaxValues()
-		local step = 30
+        local current = scrollBar:GetValue()
+        local minValue, maxValue = scrollBar:GetMinMaxValues()
+        local step = 30
 
-		if delta > 0 then
-			scrollBar:SetValue(math.max(current - step, minValue))
-		else
-			scrollBar:SetValue(math.min(current + step, maxValue))
-		end
-	end)
-
-    ------------------------------------------------------------------------
-    -- SEARCH MATCHES
-    ------------------------------------------------------------------------
+        if delta > 0 then
+            scrollBar:SetValue(math.max(current - step, minValue))
+        else
+            scrollBar:SetValue(math.min(current + step, maxValue))
+        end
+    end)
 
     local function GetSearchMatches()
-
         EnsureMountJournalLoaded()
 
         local query = NormalizeMountName(frame.searchText or "")
@@ -280,16 +197,8 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
         end
 
         for _, mount in ipairs(GetCollectedMounts()) do
-
             if not MountIsBlacklisted(mount.id)
-                and string.find(
-                    mount.normalized,
-                    query,
-                    1,
-                    true
-                )
-            then
-
+                and string.find(mount.normalized, query, 1, true) then
                 table.insert(matches, mount)
 
                 if #matches >= 5 then
@@ -301,27 +210,15 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
         return matches
     end
 
-    ------------------------------------------------------------------------
-    -- REFRESH
-    ------------------------------------------------------------------------
-
     local function Refresh()
-
         EnsureMountJournalLoaded()
 
         local matches = GetSearchMatches()
         local blacklistedIDs = {}
 
-        if RandomSmartMountAPI
-            and RandomSmartMountAPI.GetBlacklistedMountIDs
-        then
-            blacklistedIDs =
-                RandomSmartMountAPI.GetBlacklistedMountIDs()
+        if RandomSmartMountAPI and RandomSmartMountAPI.GetBlacklistedMountIDs then
+            blacklistedIDs = RandomSmartMountAPI.GetBlacklistedMountIDs()
         end
-
-        --------------------------------------------------------------------
-        -- CLEAR OLD ROWS
-        --------------------------------------------------------------------
 
         for _, row in ipairs(searchResultsFrame.rows) do
             row:Hide()
@@ -331,100 +228,54 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
             row:Hide()
         end
 
-        --------------------------------------------------------------------
-        -- SEARCH RESULTS
-        --------------------------------------------------------------------
-
         if (frame.searchText or "") == "" then
-
             searchResultsContainer:Hide()
-
         else
-
             local resultCount = math.min(#matches, 5)
-
-            local containerHeight =
-                math.max(40, (resultCount * 30) + 18)
+            local containerHeight = math.max(40, (resultCount * 30) + 18)
 
             searchResultsContainer:SetHeight(containerHeight)
             searchResultsFrame:SetHeight(containerHeight - 20)
 
             if resultCount == 0 then
-
                 searchResultsContainer:Hide()
-
             else
-
                 searchResultsContainer:Show()
 
                 for index = 1, resultCount do
-
                     local mount = matches[index]
                     local row = searchResultsFrame.rows[index]
 
                     if not row then
+                        row = CreateFrame("Frame", nil, searchResultsFrame)
+                        row:SetSize(500, 28)
 
-                        row = CreateFrame(
-                            "Frame",
-                            nil,
-                            searchResultsFrame
-                        )
-
-                        row:SetSize(540, 28)
-
-                        row.text = row:CreateFontString(
-                            nil,
-                            "ARTWORK",
-                            "GameFontHighlight"
-                        )
-
+                        row.text = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
                         row.text:SetPoint("LEFT", 0, 0)
-                        row.text:SetWidth(430)
+                        row.text:SetWidth(390)
                         row.text:SetJustifyH("LEFT")
 
                         row.add = CreateButton(row, "Add", 70)
-
-                        row.add:SetPoint(
-                            "LEFT",
-                            row.text,
-                            "RIGHT",
-                            8,
-                            0
-                        )
+                        row.add:SetPoint("LEFT", row.text, "RIGHT", 12, 0)
 
                         searchResultsFrame.rows[index] = row
                     end
 
-                    row:SetPoint(
-                        "TOPLEFT",
-                        searchResultsFrame,
-                        "TOPLEFT",
-                        0,
-                        -((index - 1) * 30)
-                    )
-
+                    row:SetPoint("TOPLEFT", searchResultsFrame, "TOPLEFT", 0, -((index - 1) * 30))
                     row.text:SetText(mount.name)
 
                     row.add:SetScript("OnClick", function()
-
-                        if RandomSmartMountAPI
-                            and RandomSmartMountAPI.SetMountBlacklisted
-                        then
-                            RandomSmartMountAPI.SetMountBlacklisted(
-                                mount.id,
-                                true
-                            )
+                        if RandomSmartMountAPI and RandomSmartMountAPI.SetMountBlacklisted then
+                            RandomSmartMountAPI.SetMountBlacklisted(mount.id, true)
                         else
                             GetDB().blacklist[mount.id] = true
                         end
 
                         searchBox:SetText("")
                         searchBox:ClearFocus()
-
                         frame.searchText = ""
 
                         Refresh()
-
                         Print("Blacklisted " .. mount.name .. ".")
                     end)
 
@@ -433,37 +284,21 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
             end
         end
 
-        --------------------------------------------------------------------
-        -- EMPTY BLACKLIST
-        --------------------------------------------------------------------
-
         if #blacklistedIDs == 0 then
-
             if not frame.blacklistEmptyText then
-
-                frame.blacklistEmptyText =
-                    blacklistedScrollChild:CreateFontString(
-                        nil,
-                        "ARTWORK",
-                        "GameFontDisableSmall"
-                    )
-
-                frame.blacklistEmptyText:SetPoint(
-                    "TOPLEFT",
-                    blacklistedScrollChild,
-                    "TOPLEFT",
-                    0,
-                    0
-                )
-
-                frame.blacklistEmptyText:SetText(
-                    "No mounts are currently blacklisted."
-                )
+                frame.blacklistEmptyText = blacklistedScrollChild:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+                frame.blacklistEmptyText:SetPoint("TOPLEFT", blacklistedScrollChild, "TOPLEFT", 0, 0)
+                frame.blacklistEmptyText:SetText("No mounts are currently blacklisted.")
             end
 
             frame.blacklistEmptyText:Show()
-
             blacklistedScrollChild:SetHeight(24)
+
+            if scrollBar then
+                scrollBar:SetMinMaxValues(0, 0)
+                scrollBar:SetValue(0)
+                scrollBar:SetShown(false)
+            end
 
             return
         end
@@ -472,43 +307,20 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
             frame.blacklistEmptyText:Hide()
         end
 
-        --------------------------------------------------------------------
-        -- BLACKLIST ROWS
-        --------------------------------------------------------------------
-
         for index, mountID in ipairs(blacklistedIDs) do
-
             local row = frame.blacklistRows[index]
 
             if not row then
+                row = CreateFrame("Frame", nil, blacklistedScrollChild)
+                row:SetSize(480, 28)
 
-                row = CreateFrame(
-                    "Frame",
-                    nil,
-                    blacklistedScrollChild
-                )
-
-                row:SetSize(540, 28)
-
-                row.text = row:CreateFontString(
-                    nil,
-                    "ARTWORK",
-                    "GameFontHighlight"
-                )
-
+                row.text = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
                 row.text:SetPoint("LEFT", 0, 0)
-                row.text:SetWidth(430)
+                row.text:SetWidth(380)
                 row.text:SetJustifyH("LEFT")
 
                 row.remove = CreateButton(row, "Remove", 80)
-
-                row.remove:SetPoint(
-                    "LEFT",
-                    row.text,
-                    "RIGHT",
-                    8,
-                    0
-                )
+                row.remove:SetPoint("LEFT", row.text, "RIGHT", 12, 0)
 
                 frame.blacklistRows[index] = row
             end
@@ -519,74 +331,40 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
                 and RandomSmartMountAPI.GetMountName(mountID)
                 or ("Mount " .. tostring(mountID))
 
-            row:SetPoint(
-                "TOPLEFT",
-                blacklistedScrollChild,
-                "TOPLEFT",
-                0,
-                -((index - 1) * 30)
-            )
-
-            row.text:SetText(
-                mountName .. " (" .. tostring(mountID) .. ")"
-            )
+            row:SetPoint("TOPLEFT", blacklistedScrollChild, "TOPLEFT", 0, -((index - 1) * 30))
+            row.text:SetText(mountName .. " (" .. tostring(mountID) .. ")")
 
             row.remove:SetScript("OnClick", function()
-
-                if RandomSmartMountAPI
-                    and RandomSmartMountAPI.SetMountBlacklisted
-                then
-                    RandomSmartMountAPI.SetMountBlacklisted(
-                        mountID,
-                        false
-                    )
+                if RandomSmartMountAPI and RandomSmartMountAPI.SetMountBlacklisted then
+                    RandomSmartMountAPI.SetMountBlacklisted(mountID, false)
                 else
                     GetDB().blacklist[mountID] = nil
                 end
 
                 Refresh()
-
-                Print(
-                    "Removed "
-                    .. mountName
-                    .. " from blacklist."
-                )
+                Print("Removed " .. mountName .. " from blacklist.")
             end)
 
             row:Show()
         end
 
-        --------------------------------------------------------------------
-        -- SCROLL HEIGHT
-        --------------------------------------------------------------------
-
-        blacklistedScrollChild:SetHeight(
-            math.max(1, #blacklistedIDs * 30)
-        )
-
+        blacklistedScrollChild:SetHeight(math.max(1, #blacklistedIDs * 30))
         blacklistedScrollFrame:UpdateScrollChildRect()
 
-        local maxScroll =
-            blacklistedScrollFrame:GetVerticalScrollRange()
-
-        local current =
-            blacklistedScrollFrame:GetVerticalScroll()
+        local maxScroll = blacklistedScrollFrame:GetVerticalScrollRange()
+        local current = blacklistedScrollFrame:GetVerticalScroll()
 
         if current > maxScroll then
             blacklistedScrollFrame:SetVerticalScroll(maxScroll)
         end
 
-		if scrollBar then
-			scrollBar:SetMinMaxValues(0, maxScroll)
-			scrollBar:SetValueStep(30)
-			scrollBar:SetValue(blacklistedScrollFrame:GetVerticalScroll())
-			scrollBar:SetShown(maxScroll > 0)
-		end
+        if scrollBar then
+            scrollBar:SetMinMaxValues(0, maxScroll)
+            scrollBar:SetValueStep(30)
+            scrollBar:SetValue(blacklistedScrollFrame:GetVerticalScroll())
+            scrollBar:SetShown(maxScroll > 0)
+        end
     end
-
-    ------------------------------------------------------------------------
-    -- EVENTS
-    ------------------------------------------------------------------------
 
     searchBox:SetScript("OnTextChanged", function(self)
         frame.searchText = self:GetText() or ""
@@ -598,17 +376,13 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
     end)
 
     clearSearchButton:SetScript("OnClick", function()
-
         frame.searchText = ""
-
         searchBox:SetText("")
         searchBox:ClearFocus()
-
         Refresh()
     end)
 
     addLastButton:SetScript("OnClick", function()
-
         local lastMountID =
             RandomSmartMountAPI
             and RandomSmartMountAPI.GetLastMountID
@@ -619,13 +393,8 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
             return
         end
 
-        if RandomSmartMountAPI
-            and RandomSmartMountAPI.SetMountBlacklisted
-        then
-            RandomSmartMountAPI.SetMountBlacklisted(
-                lastMountID,
-                true
-            )
+        if RandomSmartMountAPI and RandomSmartMountAPI.SetMountBlacklisted then
+            RandomSmartMountAPI.SetMountBlacklisted(lastMountID, true)
         else
             GetDB().blacklist[lastMountID] = true
         end
@@ -637,32 +406,21 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
             or tostring(lastMountID)
 
         Refresh()
-
-        Print(
-            "Blacklisted last mount: "
-            .. mountName
-            .. "."
-        )
+        Print("Blacklisted last mount: " .. mountName .. ".")
     end)
 
     clearBlacklistButton:SetScript("OnClick", function()
-
         GetDB().blacklist = {}
-
         Refresh()
-
         Print("Blacklist cleared.")
     end)
 
     frame.Refresh = Refresh
-
     frame:SetScript("OnShow", Refresh)
 
     return frame
 end
 
-if RandomSmartMountUI
-    and RandomSmartMountUI.RefreshPages
-then
+if RandomSmartMountUI and RandomSmartMountUI.RefreshPages then
     RandomSmartMountUI.RefreshPages()
 end
