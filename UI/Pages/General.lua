@@ -94,7 +94,7 @@ end
 
 function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
     local frame = CreateFrame("Frame", nil, parent)
-    frame:SetPoint("TOPLEFT", 285, -140)
+    frame:SetPoint("TOPLEFT", 285, -160)
     frame:SetPoint("BOTTOMRIGHT", -30, 30)
     frame:Hide()
 

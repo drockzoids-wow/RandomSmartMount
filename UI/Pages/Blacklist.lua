@@ -83,7 +83,7 @@ end
 
 function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
     local frame = CreateFrame("Frame", nil, parent)
-    frame:SetPoint("TOPLEFT", 285, -140)
+    frame:SetPoint("TOPLEFT", 285, -160)
     frame:SetPoint("BOTTOMRIGHT", -30, 30)
     frame:Hide()
 
@@ -153,7 +153,7 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
 
     local blacklistedScrollFrame = CreateFrame("ScrollFrame", "RandomSmartMountBlacklistScrollFrame", frame, "UIPanelScrollFrameTemplate")
     blacklistedScrollFrame:SetPoint("TOPLEFT", blacklistedTitle, "BOTTOMLEFT", 0, -8)
-    blacklistedScrollFrame:SetSize(500, 205)
+    blacklistedScrollFrame:SetSize(500, 175)
 
     local blacklistedScrollChild = CreateFrame("Frame", nil, blacklistedScrollFrame)
     blacklistedScrollChild:SetSize(480, 1)

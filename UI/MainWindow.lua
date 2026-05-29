@@ -222,9 +222,9 @@ local function CreateMainWindow()
 		"OUTLINE"
 	)
 
-	mainTitle:SetPoint("TOP", frame, "TOP", 0, -65)
-	mainTitle:SetText("Random Smart Mount")
-	mainTitle:SetTextColor(1.0, 0.82, 0)
+--	mainTitle:SetPoint("TOP", frame, "TOP", 0, -65)
+--	mainTitle:SetText("Random Smart Mount")
+--	mainTitle:SetTextColor(1.0, 0.82, 0)
 
 	-- Subtitle
 	local subTitle = frame:CreateFontString(nil, "ARTWORK")
@@ -235,9 +235,9 @@ local function CreateMainWindow()
 		"OUTLINE"
 	)
 
-	subTitle:SetPoint("TOP", mainTitle, "BOTTOM", 0, -2)
-	subTitle:SetText("Control Center")
-	subTitle:SetTextColor(1.0, 0.82, 0)
+--	subTitle:SetPoint("TOP", mainTitle, "BOTTOM", 0, -2)
+--	subTitle:SetText("Control Center")
+--	subTitle:SetTextColor(1.0, 0.82, 0)
 
 	local sidebarDivider = frame:CreateTexture(nil, "ARTWORK")
 	sidebarDivider:SetColorTexture(0.9, 0.65, 0.25, 0.35)
