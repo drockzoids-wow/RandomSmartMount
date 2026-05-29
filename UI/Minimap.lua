@@ -44,22 +44,15 @@ function RandomSmartMountUI.CreateMinimapButton()
         icon = iconPath,
 
         OnClick = function(_, button)
-            if button == "RightButton" then
-                RandomSmartMountUI.Toggle()
-            else
-                if RandomSmartMountButton then
-                    RandomSmartMountButton:Click("LeftButton")
-                else
-                    Print("Smart mount button not found.")
-                end
-            end
-        end,
+			if RandomSmartMountUI and RandomSmartMountUI.Toggle then
+				RandomSmartMountUI.Toggle()
+			end
+		end,
 
         OnTooltipShow = function(tooltip)
-            tooltip:AddLine("Random Smart Mount")
-            tooltip:AddLine("Left Click: Smart Mount", 1, 1, 1)
-            tooltip:AddLine("Right Click: Open Control Center", 1, 1, 1)
-            tooltip:AddLine("Drag: Move minimap button", 0.8, 0.8, 0.8)
+			tooltip:AddLine("Random Smart Mount")
+			tooltip:AddLine("Click: Open Control Center", 1, 1, 1)
+			tooltip:AddLine("Drag: Move minimap button", 0.8, 0.8, 0.8)
         end,
     })
 

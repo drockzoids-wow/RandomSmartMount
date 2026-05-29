@@ -14,8 +14,12 @@ local RSM = {}
 RSM.debug = false
 
 local DEFAULTS = {
+    enabled = true,
     useDruidTravelForm = true,
     useDracthyrSoar = true,
+    preferGroundWhenNotFlyable = true,
+    randomFavoritesOnly = false,
+    useDragonridingMounts = true,
 
     druidTravelSpellID = 783,      -- Travel Form
 	druidCatFormSpellID = 768,	   -- Cat Form
@@ -505,8 +509,21 @@ local function GetPriorityServiceMountID(serviceType)
     return nil
 end
 
+local function EnsureMountJournalLoaded()
+    if C_AddOns and C_AddOns.LoadAddOn then
+        pcall(C_AddOns.LoadAddOn, "Blizzard_Collections")
+    elseif LoadAddOn then
+        pcall(LoadAddOn, "Blizzard_Collections")
+    end
+end
+
 local function PickRandomMountID()
+    local db = GetDB()
+
+    EnsureMountJournalLoaded()
+
     local allMounts = {}
+    local groundMounts = {}
     local flyingMounts = {}
     local surfaceFlyingMounts = {}
     local waterMounts = {}
@@ -518,26 +535,35 @@ local function PickRandomMountID()
     local isSurface = IsPlayerSwimmingAtSurface()
     local isUnderwater = IsPlayerUnderwaterForMounts()
 
-    for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
-        local name, _, _, _, isUsable, _, _, _, _, _, isCollected =
-            C_MountJournal.GetMountInfoByID(mountID)
+	for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
+		local name, _, _, _, isUsable, _, isFavorite, _, _, _, isCollected =
+			C_MountJournal.GetMountInfoByID(mountID)
 
-        if name and isCollected and isUsable and not IsMountBlacklisted(mountID) then
-            allMounts[#allMounts + 1] = mountID
+		if name and isCollected and not IsMountBlacklisted(mountID) then
+			if not db.randomFavoritesOnly or isFavorite then
+				allMounts[#allMounts + 1] = mountID
 
-            if IsFlyingMount(mountID) then
-                flyingMounts[#flyingMounts + 1] = mountID
+				if IsFlyingMount(mountID) then
+					flyingMounts[#flyingMounts + 1] = mountID
 
-                if isSurface then
-                    surfaceFlyingMounts[#surfaceFlyingMounts + 1] = mountID
-                end
-            end
+					if isSurface then
+						surfaceFlyingMounts[#surfaceFlyingMounts + 1] = mountID
+					end
+				else
+					groundMounts[#groundMounts + 1] = mountID
+				end
 
-            if IsWaterMount(mountID) then
-                waterMounts[#waterMounts + 1] = mountID
-            end
-        end
-    end
+				if IsWaterMount(mountID) then
+					waterMounts[#waterMounts + 1] = mountID
+				end
+			end
+		end
+	end
+
+	if db.randomFavoritesOnly and #allMounts == 0 then
+		Print("Favorites Only is enabled, but no favorite mounts are selected.")
+		return nil, 0
+	end
 
     if isSurface and #surfaceFlyingMounts > 0 then
         return PickLeastUsedMount(surfaceFlyingMounts), #allMounts
@@ -549,6 +575,10 @@ local function PickRandomMountID()
 
     if CanFlyHere() and #flyingMounts > 0 then
         return PickLeastUsedMount(flyingMounts), #allMounts
+    end
+	  
+    if db.preferGroundWhenNotFlyable and #groundMounts > 0 then
+        return PickLeastUsedMount(groundMounts), #allMounts
     end
 
     if #allMounts > 0 then
@@ -631,11 +661,15 @@ local function BuildSmartMountMacro()
         return "/dismount"
     end
 
+	if db.enabled == false then
+		return "/run print('RandomSmartMount: Smart mounting is disabled.')"
+	end
+
     local class = PlayerClass()
     local race = PlayerRace()
 
-    if not IsOutdoors() then
-        if class == "DRUID" then
+	if not IsOutdoors() then
+		if db.useDruidTravelForm and class == "DRUID" then
             local catFormName = GetSpellName(db.druidCatFormSpellID)
 
             if catFormName and IsSpellKnownByPlayer(db.druidCatFormSpellID) and SpellUsable(db.druidCatFormSpellID) then
@@ -807,6 +841,18 @@ RandomSmartMountAPI.GetLastMountID = function()
     return GetDB().lastMountID
 end
 RandomSmartMountAPI.NormalizeMountName = NormalizeMountName
+
+RandomSmartMountAPI.ClickSmartMount = function()
+	if UpdateSmartButton then
+		UpdateSmartButton()
+	end
+
+    if RandomSmartMountButton then
+        RandomSmartMountButton:Click("LeftButton")
+    else
+        Print("Smart mount button not found.")
+    end
+end
 
 local frame = CreateFrame("Frame")
 frame:RegisterEvent("PLAYER_LOGIN")

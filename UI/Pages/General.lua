@@ -73,6 +73,25 @@ local function CreateCheckbox(parent, label, tooltip, getter, setter)
     return checkbox
 end
 
+local function CountFavoriteMounts()
+    if not C_MountJournal or not C_MountJournal.GetMountIDs then
+        return 0
+    end
+
+    local count = 0
+
+    for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
+        local name, _, _, _, _, _, isFavorite, _, _, _, isCollected =
+            C_MountJournal.GetMountInfoByID(mountID)
+
+        if name and isCollected and isFavorite then
+            count = count + 1
+        end
+    end
+
+    return count
+end
+
 function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
     local frame = CreateFrame("Frame", nil, parent)
     frame:SetPoint("TOPLEFT", 285, -140)
@@ -157,21 +176,23 @@ function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
 
     local favoritesBox = AddCheckbox(
         "Randomize favorite mounts only",
-        "Limits normal random selection to mounts marked as favorites in your mount journal.",
+        "Limits normal random selection to mounts marked as favorites in your mount journal. If greyed out, make sure favorite mounts are selected.",
         "randomFavoritesOnly",
         groundBox,
         -8
     )
 
-    local dragonBox = AddCheckbox(
-        "Use skyriding / dragonriding mounts when possible",
-        "Allows smart random selection to use skyriding-capable mounts when appropriate.",
-        "useDragonridingMounts",
-        favoritesBox,
-        -8
-    )
+	favoritesBox.requiresFavorites = true
 
-	local classSection = AddSection("Class and Race Support", description, -172)
+--    local dragonBox = AddCheckbox(
+--       "Use skyriding / dragonriding mounts when possible",
+--        "Allows smart random selection to use skyriding-capable mounts when appropriate.",
+--        "useDragonridingMounts",
+--        favoritesBox,
+--        -8
+--    )
+
+	local classSection = AddSection("Class and Race Support", description, -150)
 
     local druidBox = AddCheckbox(
         "Use Druid Travel Form support",
@@ -189,7 +210,7 @@ function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
         -8
     )
 
-    local uiSection = AddSection("Interface", description, -292)
+    local uiSection = AddSection("Interface", description, -250)
 
     AddCheckbox(
         "Show minimap button",
@@ -202,9 +223,23 @@ function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
     local function Refresh()
         GetDB()
 
-        for _, checkbox in ipairs(checkboxes) do
-            checkbox.Refresh()
-        end
+		local favoriteCount = CountFavoriteMounts()
+
+		for _, checkbox in ipairs(checkboxes) do
+			checkbox.Refresh()
+
+			if checkbox.requiresFavorites then
+				if favoriteCount == 0 then
+					checkbox:SetChecked(false)
+					checkbox:Disable()
+					checkbox.Text:SetTextColor(0.5, 0.5, 0.5)
+					GetDB().randomFavoritesOnly = false
+				else
+					checkbox:Enable()
+					checkbox.Text:SetTextColor(1, 1, 1)
+				end
+			end
+		end
     end
 
     frame.Refresh = Refresh
