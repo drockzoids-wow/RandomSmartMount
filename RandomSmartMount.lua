@@ -539,22 +539,25 @@ local function PickRandomMountID()
 		local name, _, _, _, isUsable, _, isFavorite, _, _, _, isCollected =
 			C_MountJournal.GetMountInfoByID(mountID)
 
-		if name and isCollected and not IsMountBlacklisted(mountID) then
+		if name and isCollected and isUsable and not IsMountBlacklisted(mountID) then
 			if not db.randomFavoritesOnly or isFavorite then
 				allMounts[#allMounts + 1] = mountID
 
-				if IsFlyingMount(mountID) then
+				local isFlyingMount = IsFlyingMount(mountID)
+				local isWaterMount = IsWaterMount(mountID)
+
+				if isWaterMount then
+					waterMounts[#waterMounts + 1] = mountID
+				end
+
+				if isFlyingMount then
 					flyingMounts[#flyingMounts + 1] = mountID
 
 					if isSurface then
 						surfaceFlyingMounts[#surfaceFlyingMounts + 1] = mountID
 					end
-				else
+				elseif not isWaterMount then
 					groundMounts[#groundMounts + 1] = mountID
-				end
-
-				if IsWaterMount(mountID) then
-					waterMounts[#waterMounts + 1] = mountID
 				end
 			end
 		end
@@ -803,7 +806,9 @@ end)
 
 smartButton:SetScript("PostClick", function()
     if not InCombatLockdown() then
-        ClearSmartButtonAttributes()
+        C_Timer.After(0, function()
+            UpdateSmartButton()
+        end)
     end
 end)
 
