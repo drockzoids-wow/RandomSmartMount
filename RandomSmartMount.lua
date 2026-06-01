@@ -428,7 +428,7 @@ local function PickLeastUsedMount(mountIDs)
 
     for _, mountID in ipairs(mountIDs) do
         local used = GetMountUsage(mountID)
-        local weight = 1 / ((used + 1) ^ 1.5)
+        local weight = 1 / math.sqrt(used + 1)
 
         weighted[#weighted + 1] = {
             mountID = mountID,
@@ -960,6 +960,23 @@ SlashCmdList["RANDOMSMARTMOUNT"] = function(msg)
         return
     end
 
+	if msg == "pickdebug" then
+		local mountID, availableCount = PickRandomMountID()
+
+		Print("Pick Debug")
+		Print("Available pool size: " .. tostring(availableCount))
+
+		if mountID then
+			Print("Selected mount: " .. tostring(GetMountName(mountID)) .. " (" .. tostring(mountID) .. ")")
+			Print("Usage count: " .. tostring(GetMountUsage(mountID)))
+			Print("Weight: " .. tostring(1 / math.sqrt(GetMountUsage(mountID) + 1)))
+		else
+			Print("No mount selected.")
+		end
+
+		return
+	end
+	
     if msg == "vendor" then
         SummonServiceMount("vendor")
         return
@@ -976,6 +993,7 @@ SlashCmdList["RANDOMSMARTMOUNT"] = function(msg)
     end
 
     Print("/rsm debug - show current state")
+	Print("/rsm pickdebug - show next smart mount pick and weighting")
     Print("/rsm macro - show current smart mount macro")
     Print("/rsm vendor - summon best owned vendor mount")
     Print("/rsm ah - summon best owned auction house mount")
