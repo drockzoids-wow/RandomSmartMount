@@ -317,6 +317,16 @@ local function CreateMainWindow()
     frame:RegisterForDrag("LeftButton")
     frame:SetScript("OnDragStart", frame.StartMoving)
     frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
+    frame:SetScript("OnShow", function()
+        if RandomSmartMountUI.UpdateMountMatchButtonVisibility then
+            RandomSmartMountUI.UpdateMountMatchButtonVisibility()
+        end
+    end)
+    frame:SetScript("OnHide", function()
+        if RandomSmartMountUI.UpdateMountMatchButtonVisibility then
+            RandomSmartMountUI.UpdateMountMatchButtonVisibility()
+        end
+    end)
     frame:Hide()
 
     frame.TitleText:Hide()
@@ -375,6 +385,7 @@ function RandomSmartMountUI.Toggle()
         frame:Show()
         ShowPage(RandomSmartMountUI.currentPage or "general")
     end
+
 end
 
 function RandomSmartMountUI.Show()

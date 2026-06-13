@@ -31,6 +31,7 @@ local PROFILE_DEFAULTS = {
     showMinimapButton = true,
     showMountMatchButton = true,
     mountMatchButtonSize = 46,
+    showChatMessages = false,
 
     druidTravelSpellID = 783,      -- Travel Form
 	druidCatFormSpellID = 768,	   -- Cat Form
@@ -365,7 +366,15 @@ local function ResetProfile(scope)
     return true
 end
 
-local function Print(msg)
+local function Print(msg, force)
+    if not force then
+        local db = GetDB()
+
+        if db.showChatMessages ~= true then
+            return
+        end
+    end
+
     print("|cff33ccffRandomSmartMount:|r " .. tostring(msg))
 end
 
@@ -481,6 +490,31 @@ local function GetMountDetails(mountID)
     }
 end
 
+local mountIDBySpellID
+
+local function GetMountIDBySpellIDLookup()
+    if mountIDBySpellID then
+        return mountIDBySpellID
+    end
+
+    if not C_MountJournal or not C_MountJournal.GetMountIDs or not C_MountJournal.GetMountInfoByID then
+        return {}
+    end
+
+    mountIDBySpellID = {}
+
+    for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
+        local _, mountSpellID = C_MountJournal.GetMountInfoByID(mountID)
+        mountSpellID = tonumber(mountSpellID)
+
+        if mountSpellID then
+            mountIDBySpellID[mountSpellID] = mountID
+        end
+    end
+
+    return mountIDBySpellID
+end
+
 local function FindMountIDBySpellID(spellID)
     spellID = tonumber(spellID)
     if not spellID or not C_MountJournal then
@@ -495,19 +529,7 @@ local function FindMountIDBySpellID(spellID)
         end
     end
 
-    if not C_MountJournal.GetMountIDs or not C_MountJournal.GetMountInfoByID then
-        return nil
-    end
-
-    for _, mountID in ipairs(C_MountJournal.GetMountIDs()) do
-        local _, mountSpellID = C_MountJournal.GetMountInfoByID(mountID)
-
-        if tonumber(mountSpellID) == spellID then
-            return mountID
-        end
-    end
-
-    return nil
+    return GetMountIDBySpellIDLookup()[spellID]
 end
 
 local function GetHelpfulAuraData(unit, index)
@@ -821,12 +843,30 @@ local function GetMountGroupMountIDs(groupName)
     return ids
 end
 
+local mountTypeIDByMountID = {}
+
 local function GetMountTypeID(mountID)
+    mountID = tonumber(mountID)
+    if not mountID then
+        return nil
+    end
+
+    local cachedMountTypeID = mountTypeIDByMountID[mountID]
+    if cachedMountTypeID ~= nil then
+        if cachedMountTypeID == false then
+            return nil
+        end
+
+        return cachedMountTypeID
+    end
+
     if not C_MountJournal or not C_MountJournal.GetMountInfoExtraByID then
         return nil
     end
 
     local _, _, _, _, mountTypeID = C_MountJournal.GetMountInfoExtraByID(mountID)
+    mountTypeIDByMountID[mountID] = mountTypeID or false
+
     return mountTypeID
 end
 
@@ -862,6 +902,10 @@ local function IsPlayerSwimmingAtSurface()
         return false
     end
 
+    if IsSubmerged and IsSubmerged() then
+        return false
+    end
+
     local breathScale = GetBreathTimerScale()
 
     if breathScale and breathScale < 0 then
@@ -876,7 +920,7 @@ local function IsPlayerUnderwaterForMounts()
         return false
     end
 
-    return not IsPlayerSwimmingAtSurface()
+    return true
 end
 
 local function CanFlyHere()
@@ -1171,9 +1215,6 @@ local function SummonTrackedMount(mountID)
         RandomSmartMountUI.RefreshPreview()
     end
 
-    if RandomSmartMountUI and RandomSmartMountUI.UpdateMountMatchButton then
-        RandomSmartMountUI.UpdateMountMatchButton()
-    end
 end
 
 local function MatchTargetMount()
@@ -1479,28 +1520,34 @@ local function BuildRandomMountPools()
             pools.counts.unusableOrUncollected = pools.counts.unusableOrUncollected + 1
         elseif IsMountBlacklisted(mountID) then
             pools.counts.blacklisted = pools.counts.blacklisted + 1
-        elseif db.excludeServiceMountsFromRandom ~= false and IsServiceMountName(name) then
-            pools.counts.serviceExcluded = pools.counts.serviceExcluded + 1
-        elseif not MountPassesActiveGroup(mountID) then
-            pools.counts.groupExcluded = pools.counts.groupExcluded + 1
-        elseif db.randomFavoritesOnly and not isFavorite then
-            pools.counts.favoritesExcluded = pools.counts.favoritesExcluded + 1
         else
-            pools.counts.collectedUsable = pools.counts.collectedUsable + 1
-            AddMountToRandomPools(pools, mountID)
+            local isUnderwaterWaterMount = pools.isUnderwater and IsWaterMount(mountID)
+
+            if db.excludeServiceMountsFromRandom ~= false and IsServiceMountName(name) then
+                pools.counts.serviceExcluded = pools.counts.serviceExcluded + 1
+            elseif not isUnderwaterWaterMount and not MountPassesActiveGroup(mountID) then
+                pools.counts.groupExcluded = pools.counts.groupExcluded + 1
+            elseif not isUnderwaterWaterMount and db.randomFavoritesOnly and not isFavorite then
+                pools.counts.favoritesExcluded = pools.counts.favoritesExcluded + 1
+            else
+                pools.counts.collectedUsable = pools.counts.collectedUsable + 1
+                AddMountToRandomPools(pools, mountID)
+            end
         end
     end
 
     return pools
 end
 
-local function GetPreferredRandomPool(pools)
-    if pools.isSurface and #pools.surfaceFlying > 0 then
-        return "surfaceFlying", "surface flying", pools.surfaceFlying
+local function GetPreferredRandomPool(pools, options)
+    options = options or {}
+
+    if pools.isUnderwater and (#pools.water > 0 or options.waterOnly) then
+        return "water", "underwater", pools.water
     end
 
-    if pools.isUnderwater and #pools.water > 0 then
-        return "water", "underwater", pools.water
+    if pools.isSurface and #pools.surfaceFlying > 0 then
+        return "surfaceFlying", "surface flying", pools.surfaceFlying
     end
 
     if pools.canFly and #pools.flying > 0 then
@@ -1522,7 +1569,7 @@ local function BuildRandomMountSelection(options)
     options = options or {}
 
     local pools = BuildRandomMountPools()
-    local poolKey, poolLabel, poolMounts = GetPreferredRandomPool(pools)
+    local poolKey, poolLabel, poolMounts = GetPreferredRandomPool(pools, options)
 
     local selection = {
         pools = pools,
@@ -1530,6 +1577,7 @@ local function BuildRandomMountSelection(options)
         poolLabel = poolLabel,
         poolSize = poolMounts and #poolMounts or 0,
         availableCount = #pools.all,
+        usedUnderwaterFallback = pools.isUnderwater and poolKey ~= "water" and not options.waterOnly,
     }
 
     if pools.unavailable then
@@ -1537,13 +1585,18 @@ local function BuildRandomMountSelection(options)
         return selection
     end
 
-    if GetDB().randomFavoritesOnly and #pools.all == 0 then
-        selection.message = "Favorites Only is enabled, but no favorite mounts are selected."
+    if not poolKey or not poolMounts or #poolMounts == 0 then
+        if pools.isUnderwater and options.waterOnly then
+            selection.message = "No underwater mount found."
+        else
+            selection.message = "No eligible mounts found."
+        end
+
         return selection
     end
 
-    if not poolKey or not poolMounts or #poolMounts == 0 then
-        selection.message = "No eligible mounts found."
+    if GetDB().randomFavoritesOnly and #pools.all == 0 then
+        selection.message = "Favorites Only is enabled, but no favorite mounts are selected."
         return selection
     end
 
@@ -1682,11 +1735,21 @@ local function AddRandomSelectionPreviewLines(preview, selection)
     AddPreviewLine(preview, "Flyable area: " .. BoolText(pools.canFly))
     AddPreviewLine(preview, "Swimming at surface: " .. BoolText(pools.isSurface))
     AddPreviewLine(preview, "Underwater: " .. BoolText(pools.isUnderwater))
-    AddPreviewLine(preview, "Active group: " .. (activeGroup or "All eligible mounts"))
+
+    if pools.isUnderwater and selection.poolKey == "water" and activeGroup then
+        AddPreviewLine(preview, "Active group: ignored underwater")
+    else
+        AddPreviewLine(preview, "Active group: " .. (activeGroup or "All eligible mounts"))
+    end
+
     AddPreviewLine(preview, "Eligible after filters: " .. tostring(selection.availableCount or 0))
 
     if selection.poolLabel then
         AddPreviewLine(preview, "Selected pool: " .. selection.poolLabel .. " (" .. tostring(selection.poolSize or 0) .. ")")
+    end
+
+    if selection.usedUnderwaterFallback then
+        AddPreviewLine(preview, "Underwater fallback: normal selection")
     end
 
     if GetRecentAvoidCount() > 0 then
@@ -1766,20 +1829,18 @@ local function GetSmartMountPreview()
     end
 
     if IsPlayerUnderwaterForMounts() then
-        local selection = BuildRandomMountSelection({ reserveSelection = true })
-        preview.selection = selection
-        preview.mountID = selection.mountID
-        preview.mountName = selection.mountName
+        local selection = BuildRandomMountSelection({ reserveSelection = true, waterOnly = true })
 
         if selection.mountID then
+            preview.selection = selection
+            preview.mountID = selection.mountID
+            preview.mountName = selection.mountName
             preview.summary = "Would summon underwater mount: " .. tostring(selection.mountName or selection.mountID)
-        else
-            preview.summary = selection.message or "No underwater mount found."
-        end
 
-        AddPreviewLine(preview, preview.summary)
-        AddRandomSelectionPreviewLines(preview, selection)
-        return preview
+            AddPreviewLine(preview, preview.summary)
+            AddRandomSelectionPreviewLines(preview, selection)
+            return preview
+        end
     end
 
     if db.useDracthyrSoar and race == "Dracthyr" and not IsPlayerUnderwaterForMounts() then
@@ -1824,6 +1885,13 @@ end
 
 local SMART_MOUNT_MACRO_PREFIX = "/dismount [mounted]\n/stopmacro [mounted]\n/stopmacro [combat]\n"
 
+local function BuildChatMessageMacro(message)
+    return SMART_MOUNT_MACRO_PREFIX
+        .. "/run if RandomSmartMountAPI and RandomSmartMountAPI.Print then RandomSmartMountAPI.Print("
+        .. string.format("%q", tostring(message or ""))
+        .. ") end"
+end
+
 local function BuildSummonMountMacro(mountID)
     return SMART_MOUNT_MACRO_PREFIX .. "/run RandomSmartMountAPI.SummonMount(" .. tostring(mountID) .. ")"
 end
@@ -1836,7 +1904,7 @@ local function BuildSmartMountMacro()
     end
 
 	if db.enabled == false then
-		return SMART_MOUNT_MACRO_PREFIX .. "/run print('RandomSmartMount: Smart mounting is disabled.')"
+		return BuildChatMessageMacro("Smart mounting is disabled.")
 	end
 
     local class = PlayerClass()
@@ -1851,7 +1919,7 @@ local function BuildSmartMountMacro()
             end
         end
 
-        return SMART_MOUNT_MACRO_PREFIX .. "/run print('RandomSmartMount: You are indoors.')"
+        return BuildChatMessageMacro("You are indoors.")
     end
 
     if db.useDruidTravelForm and class == "DRUID" then
@@ -1862,9 +1930,9 @@ local function BuildSmartMountMacro()
     end
 
     if IsPlayerUnderwaterForMounts() then
-        local mountID = PickRandomMountID()
-        if mountID then
-            return BuildSummonMountMacro(mountID)
+        local selection = BuildRandomMountSelection({ useReservation = true, waterOnly = true })
+        if selection.mountID then
+            return BuildSummonMountMacro(selection.mountID)
         end
     end
 
@@ -1892,10 +1960,10 @@ local function BuildSmartMountMacro()
     end
 
     if availableCount > 0 then
-        return SMART_MOUNT_MACRO_PREFIX .. "/run print('RandomSmartMount: Mounting is not allowed here right now.')"
+        return BuildChatMessageMacro("Mounting is not allowed here right now.")
     end
 
-    return SMART_MOUNT_MACRO_PREFIX .. "/run print('RandomSmartMount: No usable mounts found.')"
+    return BuildChatMessageMacro("No usable mounts found.")
 end
 
 local function SummonServiceMount(serviceType)
@@ -1959,14 +2027,6 @@ smartButton:SetScript("PreClick", function()
     end
 end)
 
-smartButton:SetScript("PostClick", function()
-    if not InCombatLockdown() then
-        C_Timer.After(0, function()
-            UpdateSmartButton()
-        end)
-    end
-end)
-
 local vendorButton = CreateFrame("Button", "RandomSmartMountVendorButton", UIParent, "SecureActionButtonTemplate")
 vendorButton:RegisterForClicks("AnyDown")
 vendorButton:HookScript("OnClick", function()
@@ -2026,10 +2086,6 @@ RandomSmartMountAPI.NormalizeMountName = NormalizeMountName
 RandomSmartMountAPI.GetSmartMountPreview = GetSmartMountPreview
 
 RandomSmartMountAPI.ClickSmartMount = function()
-	if UpdateSmartButton then
-		UpdateSmartButton()
-	end
-
     if RandomSmartMountButton then
         RandomSmartMountButton:Click("LeftButton")
     else
@@ -2044,7 +2100,6 @@ frame:RegisterEvent("ZONE_CHANGED")
 frame:RegisterEvent("ZONE_CHANGED_INDOORS")
 frame:RegisterEvent("ZONE_CHANGED_NEW_AREA")
 frame:RegisterEvent("PLAYER_REGEN_ENABLED")
-frame:RegisterEvent("MOUNT_JOURNAL_USABILITY_CHANGED")
 
 frame:SetScript("OnEvent", function(_, event)
     GetDB()
@@ -2055,7 +2110,6 @@ frame:SetScript("OnEvent", function(_, event)
         end
 
         UpdateSmartButton()
-        Print("Loaded. Bind it under Options > Keybindings > Random Smart Mount.")
         return
     end
 
@@ -2070,86 +2124,96 @@ end)
 SLASH_RANDOMSMARTMOUNT1 = "/rsm"
 SLASH_RANDOMSMARTMOUNT2 = "/randomsmartmount"
 
-SlashCmdList["RANDOMSMARTMOUNT"] = function(msg)
+local function HandleSlashCommand(msg)
     msg = string.lower(msg or "")
     local db = GetDB()
+
+    local function Reply(text)
+        Print(text, true)
+    end
+
+    if msg == "chat" or msg == "messages" then
+        db.showChatMessages = not db.showChatMessages
+        Reply("Chat messages: " .. (db.showChatMessages and "enabled" or "disabled") .. ".")
+        return
+    end
 
     if msg == "debug" then
         local fallingAction = GetFallingRescueAction()
 
-        Print("Class: " .. tostring(PlayerClass()))
-        Print("Race: " .. tostring(PlayerRace()))
-        Print("Outdoors: " .. tostring(IsOutdoors()))
-        Print("Falling: " .. tostring(IsFalling and IsFalling()))
-        Print("FallingAction: " .. tostring(fallingAction and fallingAction.spell))
-        Print("Swimming: " .. tostring(IsSwimming and IsSwimming()))
-        Print("Submerged: " .. tostring(IsSubmerged and IsSubmerged()))
-        Print("BreathScale: " .. tostring(GetBreathTimerScale()))
-        Print("SurfaceWater: " .. tostring(IsPlayerSwimmingAtSurface()))
-        Print("UnderwaterForMounts: " .. tostring(IsPlayerUnderwaterForMounts()))
-        Print("Flyable: " .. tostring(CanFlyHere()))
-        Print("UsageEntries: " .. tostring(CountUsageEntries()))
-        Print("TotalUses: " .. tostring(GetTotalMountUses()))
-        Print("Macro: " .. BuildSmartMountMacro())
+        Reply("Class: " .. tostring(PlayerClass()))
+        Reply("Race: " .. tostring(PlayerRace()))
+        Reply("Outdoors: " .. tostring(IsOutdoors()))
+        Reply("Falling: " .. tostring(IsFalling and IsFalling()))
+        Reply("FallingAction: " .. tostring(fallingAction and fallingAction.spell))
+        Reply("Swimming: " .. tostring(IsSwimming and IsSwimming()))
+        Reply("Submerged: " .. tostring(IsSubmerged and IsSubmerged()))
+        Reply("BreathScale: " .. tostring(GetBreathTimerScale()))
+        Reply("SurfaceWater: " .. tostring(IsPlayerSwimmingAtSurface()))
+        Reply("UnderwaterForMounts: " .. tostring(IsPlayerUnderwaterForMounts()))
+        Reply("Flyable: " .. tostring(CanFlyHere()))
+        Reply("UsageEntries: " .. tostring(CountUsageEntries()))
+        Reply("TotalUses: " .. tostring(GetTotalMountUses()))
+        Reply("Macro: " .. BuildSmartMountMacro())
         return
     end
 
     if msg == "macro" then
-        Print(BuildSmartMountMacro())
+        Reply(BuildSmartMountMacro())
         return
     end
 
     if msg == "last" then
-        Print("Last mount ID: " .. tostring(db.lastMountID))
+        Reply("Last mount ID: " .. tostring(db.lastMountID))
         return
     end
 
     if msg == "usage" then
-        Print("Tracked mount usage entries: " .. tostring(CountUsageEntries()))
-        Print("Total tracked mount uses: " .. tostring(GetTotalMountUses()))
+        Reply("Tracked mount usage entries: " .. tostring(CountUsageEntries()))
+        Reply("Total tracked mount uses: " .. tostring(GetTotalMountUses()))
         return
     end
 
     if msg == "resetusage" then
         ClearMountUsage()
-        Print("Mount usage history reset.")
+        Reply("Mount usage history reset.")
         return
     end
 
     if msg == "resetrecent" then
         ClearRecentMounts()
-        Print("Recent mount history reset.")
+        Reply("Recent mount history reset.")
         return
     end
 
     if msg == "blacklistlast" then
         if db.lastMountID then
             SetMountBlacklisted(db.lastMountID, true)
-            Print("Blacklisted last mount: " .. tostring(GetMountName(db.lastMountID) or db.lastMountID))
+            Reply("Blacklisted last mount: " .. tostring(GetMountName(db.lastMountID) or db.lastMountID))
         else
-            Print("No last mount found.")
+            Reply("No last mount found.")
         end
         return
     end
 
     if msg == "clearblacklist" then
         db.blacklist = {}
-        Print("Blacklist cleared.")
+        Reply("Blacklist cleared.")
         return
     end
 
 	if msg == "pickdebug" then
 		local mountID, availableCount = PickRandomMountID()
 
-		Print("Pick Debug")
-		Print("Available pool size: " .. tostring(availableCount))
+		Reply("Pick Debug")
+		Reply("Available pool size: " .. tostring(availableCount))
 
 		if mountID then
-			Print("Selected mount: " .. tostring(GetMountName(mountID)) .. " (" .. tostring(mountID) .. ")")
-			Print("Usage count: " .. tostring(GetMountUsage(mountID)))
-			Print("Weight: " .. tostring(1 / math.sqrt(GetMountUsage(mountID) + 1)))
+			Reply("Selected mount: " .. tostring(GetMountName(mountID)) .. " (" .. tostring(mountID) .. ")")
+			Reply("Usage count: " .. tostring(GetMountUsage(mountID)))
+			Reply("Weight: " .. tostring(1 / math.sqrt(GetMountUsage(mountID) + 1)))
 		else
-			Print("No mount selected.")
+			Reply("No mount selected.")
 		end
 
 		return
@@ -2158,11 +2222,11 @@ SlashCmdList["RANDOMSMARTMOUNT"] = function(msg)
     if msg == "preview" or msg == "pickpreview" then
         local preview = GetSmartMountPreview()
 
-        Print(preview.summary or "Preview unavailable.")
+        Reply(preview.summary or "Preview unavailable.")
 
         for _, line in ipairs(preview.lines or {}) do
             if line ~= preview.summary then
-                Print(line)
+                Reply(line)
             end
         end
 
@@ -2189,18 +2253,27 @@ SlashCmdList["RANDOMSMARTMOUNT"] = function(msg)
         return
     end
 
-    Print("/rsm debug - show current state")
-	Print("/rsm pickdebug - show next smart mount pick and weighting")
-    Print("/rsm macro - show current smart mount macro")
-    Print("/rsm vendor - summon best owned vendor mount")
-    Print("/rsm ah - summon best owned auction house mount")
-    Print("/rsm ride - summon best owned ride-along mount")
-    Print("/rsm match - match your target's mount if owned")
-    Print("/rsm last - show last summoned mount ID")
-    Print("/rsm usage - show mount usage tracking count")
-    Print("/rsm resetusage - reset weighted usage tracking")
-    Print("/rsm resetrecent - reset recent mount cooldown history")
-    Print("/rsm preview - show what smart mount would pick now")
-    Print("/rsm blacklistlast - blacklist last summoned mount")
-    Print("/rsm clearblacklist - clear blacklist")
+    Reply("/rsm debug - show current state")
+	Reply("/rsm pickdebug - show next smart mount pick and weighting")
+    Reply("/rsm macro - show current smart mount macro")
+    Reply("/rsm vendor - summon best owned vendor mount")
+    Reply("/rsm ah - summon best owned auction house mount")
+    Reply("/rsm ride - summon best owned ride-along mount")
+    Reply("/rsm match - match your target's mount if owned")
+    Reply("/rsm chat - toggle normal chat messages")
+    Reply("/rsm last - show last summoned mount ID")
+    Reply("/rsm usage - show mount usage tracking count")
+    Reply("/rsm resetusage - reset weighted usage tracking")
+    Reply("/rsm resetrecent - reset recent mount cooldown history")
+    Reply("/rsm preview - show what smart mount would pick now")
+    Reply("/rsm blacklistlast - blacklist last summoned mount")
+    Reply("/rsm clearblacklist - clear blacklist")
+end
+
+SlashCmdList["RANDOMSMARTMOUNT"] = function(msg)
+    local ok, err = pcall(HandleSlashCommand, msg)
+
+    if not ok then
+        error(err)
+    end
 end

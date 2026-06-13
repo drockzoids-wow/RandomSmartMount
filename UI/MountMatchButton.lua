@@ -9,8 +9,6 @@ local MAX_BUTTON_SIZE = 72
 local function Print(msg)
     if RandomSmartMountAPI and RandomSmartMountAPI.Print then
         RandomSmartMountAPI.Print(msg)
-    else
-        print("|cff33ccffRandomSmartMount:|r " .. tostring(msg))
     end
 end
 
@@ -92,7 +90,8 @@ end
 local function SetButtonShown(button)
     local db = GetDB()
 
-    if db.showMountMatchButton == false then
+    if db.showMountMatchButton == false
+        or (RandomSmartMountUI.frame and RandomSmartMountUI.frame:IsShown()) then
         button:Hide()
     else
         button:Show()
@@ -102,6 +101,13 @@ end
 function RandomSmartMountUI.UpdateMountMatchButton()
     local button = RandomSmartMountUI.mountMatchButton
     if not button then return end
+
+    local db = GetDB()
+    if db.showMountMatchButton == false
+        or (RandomSmartMountUI.frame and RandomSmartMountUI.frame:IsShown()) then
+        button:Hide()
+        return
+    end
 
     local match = GetMatch()
     local icon = match and match.icon or DEFAULT_ICON
@@ -118,7 +124,7 @@ function RandomSmartMountUI.UpdateMountMatchButton()
         button:SetAlpha(0.55)
     end
 
-    SetButtonShown(button)
+    button:Show()
 end
 
 function RandomSmartMountUI.UpdateMountMatchButtonVisibility()
@@ -141,6 +147,8 @@ function RandomSmartMountUI.CreateMountMatchButton()
 
     local button = CreateFrame("Button", BUTTON_NAME, UIParent, "BackdropTemplate")
     button:SetSize(DEFAULT_BUTTON_SIZE, DEFAULT_BUTTON_SIZE)
+    button:SetFrameStrata("LOW")
+    button:SetFrameLevel(5)
     button:SetClampedToScreen(true)
     button:SetMovable(true)
     button:EnableMouse(true)
@@ -209,8 +217,11 @@ function RandomSmartMountUI.CreateMountMatchButton()
 
     button:RegisterEvent("PLAYER_TARGET_CHANGED")
     button:RegisterEvent("PLAYER_ENTERING_WORLD")
-    button:RegisterEvent("MOUNT_JOURNAL_USABILITY_CHANGED")
-    button:RegisterEvent("UNIT_AURA")
+    if button.RegisterUnitEvent then
+        button:RegisterUnitEvent("UNIT_AURA", "target")
+    else
+        button:RegisterEvent("UNIT_AURA")
+    end
 
     RandomSmartMountUI.mountMatchButton = button
     ApplyButtonSize(button)

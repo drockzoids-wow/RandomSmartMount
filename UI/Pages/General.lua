@@ -52,14 +52,16 @@ local function GetDB()
         RandomSmartMountDB.mountMatchButtonSize = 46
     end
 
+    if RandomSmartMountDB.showChatMessages == nil then
+        RandomSmartMountDB.showChatMessages = false
+    end
+
     return RandomSmartMountDB
 end
 
 local function Print(msg)
     if RandomSmartMountAPI and RandomSmartMountAPI.Print then
         RandomSmartMountAPI.Print(msg)
-    else
-        print("|cff33ccffRandomSmartMount:|r " .. tostring(msg))
     end
 end
 
@@ -195,7 +197,7 @@ function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
         return checkbox
     end
 
-    local coreSection = AddSection("Core Behavior", description, -22)
+    local coreSection = AddSection("Core Behavior", description, -22, 0, 540)
 
     local enabledBox = AddCheckbox(
         "Enable Random Smart Mount",
@@ -206,34 +208,34 @@ function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
     )
 
     local groundBox = AddCheckbox(
-        "Prefer ground mounts when flying is unavailable",
+        "Prefer ground when not flyable",
         "When you cannot fly, the addon prefers usable ground mounts instead of trying flying-only choices.",
         "preferGroundWhenNotFlyable",
-        enabledBox,
-        -8
+        coreSection,
+        -4, 330
     )
 
     local favoritesBox = AddCheckbox(
         "Randomize favorite mounts only",
         "Limits normal random selection to mounts marked as favorites in your mount journal. If greyed out, make sure favorite mounts are selected.",
         "randomFavoritesOnly",
-        groundBox,
-        -8
+        enabledBox,
+        -8, 0
     )
 
     favoritesBox.requiresFavorites = true
 
     local serviceBox = AddCheckbox(
-        "Exclude service mounts from normal randomization",
+        "Exclude service mounts",
         "Keeps vendor, auction house, and ride-along mounts out of the normal smart random pool. Dedicated service keybinds can still use them.",
         "excludeServiceMountsFromRandom",
-        favoritesBox,
-        -8
+        groundBox,
+        -8, 0
     )
 
     local recentLabel = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    recentLabel:SetPoint("TOPLEFT", serviceBox, "BOTTOMLEFT", 0, -12)
-    recentLabel:SetText("Avoid recently used mounts:")
+    recentLabel:SetPoint("TOPLEFT", favoritesBox, "BOTTOMLEFT", 0, -12)
+    recentLabel:SetText("Avoid recent mounts:")
 
     local recentBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
     recentBox:SetSize(45, 24)
@@ -264,8 +266,8 @@ function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
     recentBox:SetScript("OnEnterPressed", SaveRecentAvoidCount)
     recentBox:SetScript("OnEditFocusLost", SaveRecentAvoidCount)
 
-    local clearRecentButton = CreateButton(frame, "Clear Recent", 105)
-    clearRecentButton:SetPoint("LEFT", recentBox, "RIGHT", 10, 0)
+    local clearRecentButton = CreateButton(frame, "Clear Recent", 95)
+    clearRecentButton:SetPoint("LEFT", recentBox, "RIGHT", 8, 0)
     clearRecentButton:SetScript("OnClick", function()
         RandomSmartMountUI.ConfirmAction("Clear recent mount history?", function()
             if RandomSmartMountAPI and RandomSmartMountAPI.ClearRecentMounts then
@@ -278,7 +280,7 @@ function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
         end)
     end)
 
-    local classSection = AddSection("Class and Race Support", description, -215, 0, 250)
+    local classSection = AddSection("Class and Race Support", recentLabel, -34, -18, 540)
 
     local druidBox = AddCheckbox(
         "Use Druid Travel Form support",
@@ -292,11 +294,11 @@ function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
         "Use Dracthyr Soar support",
         "Allows Dracthyr characters to use Soar behavior when appropriate.",
         "useDracthyrSoar",
-        druidBox,
-        -8
+        classSection,
+        -4, 330
     )
 
-    local uiSection = AddSection("Interface", description, -215, 292, 228)
+    local uiSection = AddSection("Interface", druidBox, -34, -18, 540)
 
     local minimapBox = AddCheckbox(
         "Show minimap button",
@@ -306,24 +308,32 @@ function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
         -4, 18
     )
 
-    AddCheckbox(
+    local chatMessagesBox = AddCheckbox(
+        "Show chat messages",
+        "Shows normal Random Smart Mount chat feedback for clicks and UI actions. Slash command output still appears when requested.",
+        "showChatMessages",
+        minimapBox,
+        -8, 0
+    )
+
+    local matchButtonBox = AddCheckbox(
         "Show target match button",
         "Shows or hides the movable button for matching your target's mount.",
         "showMountMatchButton",
-        minimapBox,
-        -8
+        uiSection,
+        -4, 330
     )
 
     local matchSizeLabel = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    matchSizeLabel:SetPoint("TOPLEFT", minimapBox, "BOTTOMLEFT", 0, -42)
+    matchSizeLabel:SetPoint("TOPLEFT", matchButtonBox, "BOTTOMLEFT", 0, -10)
     matchSizeLabel:SetText("Match button size")
 
     local matchSizeValue = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     matchSizeValue:SetPoint("LEFT", matchSizeLabel, "RIGHT", 10, 0)
 
     local matchSizeSlider = CreateFrame("Slider", "RandomSmartMountMatchButtonSizeSlider", frame, "OptionsSliderTemplate")
-    matchSizeSlider:SetPoint("TOPLEFT", matchSizeLabel, "BOTTOMLEFT", 2, -10)
-    matchSizeSlider:SetSize(190, 16)
+    matchSizeSlider:SetPoint("TOPLEFT", matchSizeLabel, "BOTTOMLEFT", 2, -6)
+    matchSizeSlider:SetSize(150, 16)
     matchSizeSlider:SetMinMaxValues(32, 72)
     matchSizeSlider:SetValueStep(2)
 
@@ -336,11 +346,11 @@ function RandomSmartMountUI.Pages.CreateGeneralPage(parent)
     local sliderText = _G[matchSizeSlider:GetName() .. "Text"]
 
     if sliderLow then
-        sliderLow:SetText("32")
+        sliderLow:SetText("")
     end
 
     if sliderHigh then
-        sliderHigh:SetText("72")
+        sliderHigh:SetText("")
     end
 
     if sliderText then

@@ -16,8 +16,6 @@ local SERVICE_ORDER = {
 local function Print(msg)
     if RandomSmartMountAPI and RandomSmartMountAPI.Print then
         RandomSmartMountAPI.Print(msg)
-    else
-        print("|cff33ccffRandomSmartMount:|r " .. tostring(msg))
     end
 end
 
