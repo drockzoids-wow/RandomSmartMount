@@ -22,6 +22,10 @@ local function Print(msg)
 end
 
 local function GetDB()
+    if RandomSmartMountAPI and RandomSmartMountAPI.GetDB then
+        return RandomSmartMountAPI.GetDB()
+    end
+
     RandomSmartMountDB = RandomSmartMountDB or {}
     RandomSmartMountDB.preferredServiceMounts = RandomSmartMountDB.preferredServiceMounts or {}
     return RandomSmartMountDB
@@ -136,10 +140,7 @@ local function CreateServiceDropdown(parent, serviceType)
 end
 
 function RandomSmartMountUI.Pages.CreateServiceMountsPage(parent)
-    local frame = CreateFrame("Frame", nil, parent)
-    frame:SetPoint("TOPLEFT", 285, -160)
-    frame:SetPoint("BOTTOMRIGHT", -30, 30)
-    frame:Hide()
+    local frame = RandomSmartMountUI.CreatePageFrame(parent)
     frame.dropdowns = {}
 
     local title = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
@@ -156,7 +157,7 @@ function RandomSmartMountUI.Pages.CreateServiceMountsPage(parent)
 
     for _, serviceType in ipairs(SERVICE_ORDER) do
         local row = CreateFrame("Frame", nil, frame)
-        row:SetSize(560, 42)
+        row:SetSize(520, 42)
         row:SetPoint("TOPLEFT", previous, "BOTTOMLEFT", 0, -22)
 
         local label = row:CreateFontString(nil, "ARTWORK", "GameFontNormal")
@@ -179,7 +180,7 @@ function RandomSmartMountUI.Pages.CreateServiceMountsPage(parent)
     note:SetPoint("TOPLEFT", resetButton, "BOTTOMLEFT", 0, -14)
     note:SetWidth(480)
     note:SetJustifyH("LEFT")
-    note:SetText("Default Priority uses the addon’s built-in order. A selected mount is tried first, then fallback is used if that mount is unavailable.")
+    note:SetText("Vendor and auction house defaults use the addon's built-in order. Ride-Along defaults choose from eligible passenger mounts for the current area.")
 
     local function Refresh()
         local db = GetDB()
@@ -191,11 +192,13 @@ function RandomSmartMountUI.Pages.CreateServiceMountsPage(parent)
     end
 
     resetButton:SetScript("OnClick", function()
-        local db = GetDB()
-        db.preferredServiceMounts = {}
+        RandomSmartMountUI.ConfirmAction("Reset all service mount preferences to default priority?", function()
+            local db = GetDB()
+            db.preferredServiceMounts = {}
 
-        Refresh()
-        Print("All service mount preferences reset to Default Priority.")
+            Refresh()
+            Print("All service mount preferences reset to Default Priority.")
+        end)
     end)
 
     frame.Refresh = Refresh

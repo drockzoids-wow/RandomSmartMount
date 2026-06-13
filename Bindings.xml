@@ -1,17 +1,23 @@
 <Bindings>
-    <Binding name="CLICK RandomSmartMountButton:LeftButton" category="ADDONS" header="RANDOMSMARTMOUNT">
+    <Binding name="CLICK RandomSmartMountButton:LeftButton" category="Random Smart Mount" header="RANDOMSMARTMOUNT">
         RandomSmartMountButton:Click("LeftButton")
     </Binding>
 
-    <Binding name="CLICK RandomSmartMountVendorButton:LeftButton" category="ADDONS">
+    <Binding name="CLICK RandomSmartMountVendorButton:LeftButton" category="Random Smart Mount" header="RANDOMSMARTMOUNT">
         RandomSmartMountVendorButton:Click("LeftButton")
     </Binding>
 
-    <Binding name="CLICK RandomSmartMountAuctionHouseButton:LeftButton" category="ADDONS">
+    <Binding name="CLICK RandomSmartMountAuctionHouseButton:LeftButton" category="Random Smart Mount" header="RANDOMSMARTMOUNT">
         RandomSmartMountAuctionHouseButton:Click("LeftButton")
     </Binding>
 
-    <Binding name="CLICK RandomSmartMountRideAlongButton:LeftButton" category="ADDONS">
+    <Binding name="CLICK RandomSmartMountRideAlongButton:LeftButton" category="Random Smart Mount" header="RANDOMSMARTMOUNT">
         RandomSmartMountRideAlongButton:Click("LeftButton")
+    </Binding>
+
+    <Binding name="RANDOMSMARTMOUNT_MATCH_TARGET" category="Random Smart Mount" header="RANDOMSMARTMOUNT">
+        if RandomSmartMountAPI and RandomSmartMountAPI.MatchTargetMount then
+            RandomSmartMountAPI.MatchTargetMount()
+        end
     </Binding>
 </Bindings>

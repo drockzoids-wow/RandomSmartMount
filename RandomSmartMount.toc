@@ -19,7 +19,11 @@ Options.lua
 UI\Theme.lua
 UI\MainWindow.lua
 UI\Minimap.lua
+UI\MountMatchButton.lua
 UI\Pages\Statistics.lua
+UI\Pages\Preview.lua
+UI\Pages\Profiles.lua
+UI\Pages\Groups.lua
 UI\Pages\Preferred.lua
 UI\Pages\ServiceMounts.lua
 UI\Pages\Blacklist.lua

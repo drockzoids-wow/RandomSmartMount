@@ -10,6 +10,10 @@ local function Print(msg)
 end
 
 local function GetDB()
+    if RandomSmartMountAPI and RandomSmartMountAPI.GetDB then
+        return RandomSmartMountAPI.GetDB()
+    end
+
     RandomSmartMountDB = RandomSmartMountDB or {}
     RandomSmartMountDB.blacklist = RandomSmartMountDB.blacklist or {}
     return RandomSmartMountDB
@@ -82,10 +86,7 @@ local function MountIsBlacklisted(mountID)
 end
 
 function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
-    local frame = CreateFrame("Frame", nil, parent)
-    frame:SetPoint("TOPLEFT", 285, -160)
-    frame:SetPoint("BOTTOMRIGHT", -30, 30)
-    frame:Hide()
+    local frame = RandomSmartMountUI.CreatePageFrame(parent)
 
     frame.blacklistRows = {}
     frame.searchText = ""
@@ -96,7 +97,7 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
 
     local description = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     description:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -14)
-    description:SetWidth(620)
+    description:SetWidth(520)
     description:SetJustifyH("LEFT")
     description:SetText("Blacklisted mounts will not be selected by the smart random mount system.")
 
@@ -121,7 +122,7 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
 
     local searchHelp = frame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
     searchHelp:SetPoint("TOPLEFT", searchBox, "BOTTOMLEFT", -6, -8)
-    searchHelp:SetWidth(560)
+    searchHelp:SetWidth(520)
     searchHelp:SetJustifyH("LEFT")
     searchHelp:SetText("Type part of a mount name, then click Add.")
 
@@ -147,13 +148,20 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
     searchResultsFrame:SetSize(500, 72)
     searchResultsFrame.rows = {}
 
+    searchResultsFrame.emptyText = searchResultsFrame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    searchResultsFrame.emptyText:SetPoint("LEFT", 0, 0)
+    searchResultsFrame.emptyText:SetWidth(480)
+    searchResultsFrame.emptyText:SetJustifyH("LEFT")
+    searchResultsFrame.emptyText:SetText("No available collected mounts match that search.")
+    searchResultsFrame.emptyText:Hide()
+
     local blacklistedTitle = frame:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     blacklistedTitle:SetPoint("TOPLEFT", searchHelp, "BOTTOMLEFT", 0, -10)
     blacklistedTitle:SetText("Blacklisted Mounts")
 
     local blacklistedScrollFrame = CreateFrame("ScrollFrame", "RandomSmartMountBlacklistScrollFrame", frame, "UIPanelScrollFrameTemplate")
     blacklistedScrollFrame:SetPoint("TOPLEFT", blacklistedTitle, "BOTTOMLEFT", 0, -8)
-    blacklistedScrollFrame:SetSize(500, 175)
+    blacklistedScrollFrame:SetSize(500, 190)
 
     local blacklistedScrollChild = CreateFrame("Frame", nil, blacklistedScrollFrame)
     blacklistedScrollChild:SetSize(480, 1)
@@ -228,6 +236,8 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
             row:Hide()
         end
 
+        searchResultsFrame.emptyText:Hide()
+
         if (frame.searchText or "") == "" then
             searchResultsContainer:Hide()
         else
@@ -238,7 +248,8 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
             searchResultsFrame:SetHeight(containerHeight - 20)
 
             if resultCount == 0 then
-                searchResultsContainer:Hide()
+                searchResultsContainer:Show()
+                searchResultsFrame.emptyText:Show()
             else
                 searchResultsContainer:Show()
 
@@ -410,10 +421,14 @@ function RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
     end)
 
     clearBlacklistButton:SetScript("OnClick", function()
-        GetDB().blacklist = {}
-        Refresh()
-        Print("Blacklist cleared.")
+        RandomSmartMountUI.ConfirmAction("Clear every blacklisted mount?", function()
+            GetDB().blacklist = {}
+            Refresh()
+            Print("Blacklist cleared.")
+        end)
     end)
+
+    RandomSmartMountUI.AddEditBoxPlaceholder(searchBox, "Type a mount name...")
 
     frame.Refresh = Refresh
     frame:SetScript("OnShow", Refresh)

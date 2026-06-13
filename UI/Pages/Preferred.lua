@@ -10,6 +10,10 @@ local function Print(msg)
 end
 
 local function GetDB()
+    if RandomSmartMountAPI and RandomSmartMountAPI.GetDB then
+        return RandomSmartMountAPI.GetDB()
+    end
+
     RandomSmartMountDB = RandomSmartMountDB or {}
     RandomSmartMountDB.preferredMount = RandomSmartMountDB.preferredMount or nil
     return RandomSmartMountDB
@@ -73,10 +77,7 @@ local function CreateButton(parent, text, width)
 end
 
 function RandomSmartMountUI.Pages.CreatePreferredPage(parent)
-    local frame = CreateFrame("Frame", nil, parent)
-    frame:SetPoint("TOPLEFT", 285, -160)
-    frame:SetPoint("BOTTOMRIGHT", -30, 30)
-    frame:Hide()
+    local frame = RandomSmartMountUI.CreatePageFrame(parent)
 
     local title = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 0, 0)
@@ -90,7 +91,7 @@ function RandomSmartMountUI.Pages.CreatePreferredPage(parent)
 
     local currentText = frame:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
     currentText:SetPoint("TOPLEFT", description, "BOTTOMLEFT", 0, -18)
-    currentText:SetWidth(560)
+    currentText:SetWidth(520)
     currentText:SetJustifyH("LEFT")
 
     local searchBox = CreateFrame("EditBox", nil, frame, "InputBoxTemplate")
@@ -103,7 +104,7 @@ function RandomSmartMountUI.Pages.CreatePreferredPage(parent)
 
     local resultsContainer = CreateFrame("Frame", nil, frame, "BackdropTemplate")
     resultsContainer:SetPoint("TOPLEFT", searchBox, "BOTTOMLEFT", -6, -12)
-    resultsContainer:SetSize(450, 40)
+    resultsContainer:SetSize(520, 40)
 	resultsContainer:SetBackdrop({
 		bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background-Dark",
 		tile = true,
@@ -122,8 +123,15 @@ function RandomSmartMountUI.Pages.CreatePreferredPage(parent)
 
     local resultsFrame = CreateFrame("Frame", nil, resultsContainer)
     resultsFrame:SetPoint("TOPLEFT", 8, -8)
-    resultsFrame:SetSize(480, 72)
+    resultsFrame:SetSize(500, 72)
     resultsFrame.rows = {}
+
+    resultsFrame.emptyText = resultsFrame:CreateFontString(nil, "ARTWORK", "GameFontDisableSmall")
+    resultsFrame.emptyText:SetPoint("LEFT", 0, 0)
+    resultsFrame.emptyText:SetWidth(480)
+    resultsFrame.emptyText:SetJustifyH("LEFT")
+    resultsFrame.emptyText:SetText("No collected mounts match that search.")
+    resultsFrame.emptyText:Hide()
 
     local function Refresh()
         local db = GetDB()
@@ -134,6 +142,8 @@ function RandomSmartMountUI.Pages.CreatePreferredPage(parent)
         for _, row in ipairs(resultsFrame.rows) do
             row:Hide()
         end
+
+        resultsFrame.emptyText:Hide()
 
         if query == "" then
             resultsContainer:Hide()
@@ -160,6 +170,7 @@ function RandomSmartMountUI.Pages.CreatePreferredPage(parent)
         resultsContainer:Show()
 
         if resultCount == 0 then
+            resultsFrame.emptyText:Show()
             return
         end
 
@@ -168,11 +179,11 @@ function RandomSmartMountUI.Pages.CreatePreferredPage(parent)
 
             if not row then
                 row = CreateFrame("Frame", nil, resultsFrame)
-                row:SetSize(470, 26)
+                row:SetSize(500, 26)
 
                 row.text = row:CreateFontString(nil, "ARTWORK", "GameFontHighlight")
                 row.text:SetPoint("LEFT", 0, 0)
-                row.text:SetWidth(360)
+                row.text:SetWidth(400)
                 row.text:SetJustifyH("LEFT")
 
                 row.use = CreateButton(row, "Use", 70)
@@ -203,13 +214,17 @@ function RandomSmartMountUI.Pages.CreatePreferredPage(parent)
     end)
 
     resetButton:SetScript("OnClick", function()
-        local db = GetDB()
-        db.preferredMount = nil
-        searchBox:SetText("")
-        searchBox:ClearFocus()
-        Refresh()
-        Print("Preferred Smart Mount reset to Default Random Behavior.")
+        RandomSmartMountUI.ConfirmAction("Reset preferred smart mount to default random behavior?", function()
+            local db = GetDB()
+            db.preferredMount = nil
+            searchBox:SetText("")
+            searchBox:ClearFocus()
+            Refresh()
+            Print("Preferred Smart Mount reset to Default Random Behavior.")
+        end)
     end)
+
+    RandomSmartMountUI.AddEditBoxPlaceholder(searchBox, "Type a mount name...")
 
     frame.Refresh = Refresh
     frame:SetScript("OnShow", Refresh)

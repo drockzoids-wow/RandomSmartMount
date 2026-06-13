@@ -8,6 +8,28 @@ local function Print(msg)
     end
 end
 
+local function GetMinimapDB()
+    RandomSmartMountDB = RandomSmartMountDB or {}
+    RandomSmartMountDB.minimap = RandomSmartMountDB.minimap or {
+        hide = false,
+        minimapPos = 225,
+    }
+
+    local activeDB =
+        RandomSmartMountAPI
+        and RandomSmartMountAPI.GetDB
+        and RandomSmartMountAPI.GetDB()
+        or RandomSmartMountDB
+
+    if activeDB.showMinimapButton == nil then
+        activeDB.showMinimapButton = RandomSmartMountDB.minimap.hide ~= true
+    end
+
+    RandomSmartMountDB.minimap.hide = activeDB.showMinimapButton == false
+
+    return RandomSmartMountDB.minimap
+end
+
 function RandomSmartMountUI.CreateMinimapButton()
     if RandomSmartMountUI.minimapRegistered then
         return
@@ -26,11 +48,7 @@ function RandomSmartMountUI.CreateMinimapButton()
         return
     end
 
-    RandomSmartMountDB = RandomSmartMountDB or {}
-    RandomSmartMountDB.minimap = RandomSmartMountDB.minimap or {
-        hide = false,
-        minimapPos = 225,
-    }
+    local minimapDB = GetMinimapDB()
 
     local iconPath = "Interface\\Icons\\Ability_Mount_RidingHorse"
 
@@ -56,7 +74,7 @@ function RandomSmartMountUI.CreateMinimapButton()
         end,
     })
 
-    DBIcon:Register("RandomSmartMount", launcher, RandomSmartMountDB.minimap)
+    DBIcon:Register("RandomSmartMount", launcher, minimapDB)
 	RandomSmartMountUI.UpdateMinimapButtonVisibility()
     RandomSmartMountUI.minimapRegistered = true
 end
@@ -67,10 +85,24 @@ function RandomSmartMountUI.UpdateMinimapButtonVisibility()
     local DBIcon = LibStub("LibDBIcon-1.0", true)
     if not DBIcon then return end
 
-    RandomSmartMountDB = RandomSmartMountDB or {}
-    RandomSmartMountDB.showMinimapButton = RandomSmartMountDB.showMinimapButton ~= false
+    local minimapDB = GetMinimapDB()
+    local isRegistered = DBIcon.IsRegistered and DBIcon:IsRegistered("RandomSmartMount")
 
-    if RandomSmartMountDB.showMinimapButton then
+    if not isRegistered then
+        return
+    end
+
+    if DBIcon.Refresh then
+        DBIcon:Refresh("RandomSmartMount", minimapDB)
+    end
+
+    local activeDB =
+        RandomSmartMountAPI
+        and RandomSmartMountAPI.GetDB
+        and RandomSmartMountAPI.GetDB()
+        or RandomSmartMountDB
+
+    if activeDB.showMinimapButton then
         DBIcon:Show("RandomSmartMount")
     else
         DBIcon:Hide("RandomSmartMount")

@@ -1,31 +1,107 @@
-local PANEL_TITLE = "Random Smart Mount"
-
 RandomSmartMountUI = RandomSmartMountUI or {}
 RandomSmartMountUI.Pages = RandomSmartMountUI.Pages or {}
 
 local pages = {}
 local buttons = {}
 
+local WINDOW_WIDTH = 900
+local WINDOW_HEIGHT = 640
+local SIDEBAR_X = 48
+local SIDEBAR_TOP = -176
+local SIDEBAR_BUTTON_WIDTH = 176
+local SIDEBAR_BUTTON_HEIGHT = 36
+local SIDEBAR_BUTTON_GAP = 42
+local CONTENT_LEFT = 276
+local CONTENT_TOP = -168
+local CONTENT_RIGHT = -58
+local CONTENT_BOTTOM = 52
+
+RandomSmartMountUI.Layout = {
+    contentLeft = CONTENT_LEFT,
+    contentTop = CONTENT_TOP,
+    contentRight = CONTENT_RIGHT,
+    contentBottom = CONTENT_BOTTOM,
+}
+
+function RandomSmartMountUI.CreatePageFrame(parent)
+    local frame = CreateFrame("Frame", nil, parent)
+    frame:SetPoint("TOPLEFT", CONTENT_LEFT + 20, CONTENT_TOP - 20)
+    frame:SetPoint("BOTTOMRIGHT", CONTENT_RIGHT - 14, CONTENT_BOTTOM + 14)
+    frame:Hide()
+    return frame
+end
+
+function RandomSmartMountUI.ConfirmAction(message, onAccept)
+    if type(onAccept) ~= "function" then return end
+
+    if not StaticPopupDialogs or not StaticPopup_Show then
+        onAccept()
+        return
+    end
+
+    local popupKey = "RANDOM_SMART_MOUNT_CONFIRM_ACTION"
+
+    StaticPopupDialogs[popupKey] = StaticPopupDialogs[popupKey] or {
+        text = "%s",
+        button1 = YES or "Yes",
+        button2 = CANCEL or "Cancel",
+        OnAccept = function(_, data)
+            if data and data.onAccept then
+                data.onAccept()
+            end
+        end,
+        timeout = 0,
+        whileDead = true,
+        hideOnEscape = true,
+        preferredIndex = 3,
+    }
+
+    StaticPopup_Show(popupKey, message, nil, { onAccept = onAccept })
+end
+
+function RandomSmartMountUI.AddEditBoxPlaceholder(editBox, text)
+    if not editBox or editBox.placeholder then return end
+
+    local placeholder = editBox:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    placeholder:SetPoint("LEFT", editBox, "LEFT", 6, 0)
+    placeholder:SetPoint("RIGHT", editBox, "RIGHT", -6, 0)
+    placeholder:SetJustifyH("LEFT")
+    placeholder:SetText(text)
+
+    local function UpdatePlaceholder(self)
+        local value = self:GetText() or ""
+
+        if value == "" and not self:HasFocus() then
+            placeholder:Show()
+        else
+            placeholder:Hide()
+        end
+    end
+
+    editBox.placeholder = placeholder
+    editBox:HookScript("OnTextChanged", UpdatePlaceholder)
+    editBox:HookScript("OnEditFocusGained", UpdatePlaceholder)
+    editBox:HookScript("OnEditFocusLost", UpdatePlaceholder)
+    UpdatePlaceholder(editBox)
+
+    return placeholder
+end
+
 local PAGE_ORDER = {
     { key = "general", label = "General", icon = "general" },
+    { key = "groups", label = "Groups", icon = "preferred" },
     { key = "preferred", label = "Preferred", icon = "preferred" },
     { key = "service", label = "Service", icon = "service" },
     { key = "blacklist", label = "Blacklist", icon = "blacklist" },
     { key = "statistics", label = "Statistics", icon = "statistics" },
+    { key = "preview", label = "Preview", icon = "statistics" },
+    { key = "profiles", label = "Profiles", icon = "general" },
 }
-
-local function Print(msg)
-    if RandomSmartMountAPI and RandomSmartMountAPI.Print then
-        RandomSmartMountAPI.Print(msg)
-    else
-        print("|cff33ccffRandomSmartMount:|r " .. tostring(msg))
-    end
-end
 
 local function CreateFallbackPanel(parent, name, text)
     local frame = CreateFrame("Frame", nil, parent)
-    frame:SetPoint("TOPLEFT", 260, -126)
-    frame:SetPoint("BOTTOMRIGHT", -30, 30)
+    frame:SetPoint("TOPLEFT", CONTENT_LEFT + 16, CONTENT_TOP - 18)
+    frame:SetPoint("BOTTOMRIGHT", CONTENT_RIGHT - 16, CONTENT_BOTTOM + 16)
     frame:Hide()
 
     local title = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
@@ -43,37 +119,53 @@ local function CreateFallbackPanel(parent, name, text)
 end
 
 local function CreatePage(parent, key)
-	if key == "general"
-		and RandomSmartMountUI.Pages
-		and RandomSmartMountUI.Pages.CreateGeneralPage then
-		local page = RandomSmartMountUI.Pages.CreateGeneralPage(parent)
-		page:Hide()
-		return page
-	end
-	
-	if key == "preferred"
-		and RandomSmartMountUI.Pages
-		and RandomSmartMountUI.Pages.CreatePreferredPage then
-		local page = RandomSmartMountUI.Pages.CreatePreferredPage(parent)
-		page:Hide()
-		return page
-	end
+    if key == "general"
+        and RandomSmartMountUI.Pages
+        and RandomSmartMountUI.Pages.CreateGeneralPage then
+        local page = RandomSmartMountUI.Pages.CreateGeneralPage(parent)
+        page:Hide()
+        return page
+    end
 
-	if key == "service"
-		and RandomSmartMountUI.Pages
-		and RandomSmartMountUI.Pages.CreateServiceMountsPage then
-		local page = RandomSmartMountUI.Pages.CreateServiceMountsPage(parent)
-		page:Hide()
-		return page
-	end
+    if key == "preferred"
+        and RandomSmartMountUI.Pages
+        and RandomSmartMountUI.Pages.CreatePreferredPage then
+        local page = RandomSmartMountUI.Pages.CreatePreferredPage(parent)
+        page:Hide()
+        return page
+    end
 
-	if key == "blacklist"
-		and RandomSmartMountUI.Pages
-		and RandomSmartMountUI.Pages.CreateBlacklistPage then
-		local page = RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
-		page:Hide()
-		return page
-	end
+    if key == "groups"
+        and RandomSmartMountUI.Pages
+        and RandomSmartMountUI.Pages.CreateGroupsPage then
+        local page = RandomSmartMountUI.Pages.CreateGroupsPage(parent)
+        page:Hide()
+        return page
+    end
+
+    if key == "profiles"
+        and RandomSmartMountUI.Pages
+        and RandomSmartMountUI.Pages.CreateProfilesPage then
+        local page = RandomSmartMountUI.Pages.CreateProfilesPage(parent)
+        page:Hide()
+        return page
+    end
+
+    if key == "service"
+        and RandomSmartMountUI.Pages
+        and RandomSmartMountUI.Pages.CreateServiceMountsPage then
+        local page = RandomSmartMountUI.Pages.CreateServiceMountsPage(parent)
+        page:Hide()
+        return page
+    end
+
+    if key == "blacklist"
+        and RandomSmartMountUI.Pages
+        and RandomSmartMountUI.Pages.CreateBlacklistPage then
+        local page = RandomSmartMountUI.Pages.CreateBlacklistPage(parent)
+        page:Hide()
+        return page
+    end
 
     if key == "statistics"
         and RandomSmartMountUI.Pages
@@ -83,14 +175,28 @@ local function CreatePage(parent, key)
         return page
     end
 
+    if key == "preview"
+        and RandomSmartMountUI.Pages
+        and RandomSmartMountUI.Pages.CreatePreviewPage then
+        local page = RandomSmartMountUI.Pages.CreatePreviewPage(parent)
+        page:Hide()
+        return page
+    end
+
     if key == "general" then
-        return CreateFallbackPanel(parent, "General", "General settings will live here.\n\nPlanned:\n• Druid options\n• Dracthyr options\n• Randomness behavior\n• Minimap button toggle")
+        return CreateFallbackPanel(parent, "General", "General settings will live here.\n\nPlanned:\n- Druid options\n- Dracthyr options\n- Randomness behavior\n- Minimap button toggle")
+    elseif key == "groups" then
+        return CreateFallbackPanel(parent, "Groups", "Mount group controls will live here.")
+    elseif key == "profiles" then
+        return CreateFallbackPanel(parent, "Profiles", "Profile controls will live here.")
     elseif key == "preferred" then
         return CreateFallbackPanel(parent, "Preferred Mount", "Preferred Smart Mount controls will live here.")
     elseif key == "service" then
         return CreateFallbackPanel(parent, "Service Mounts", "Vendor, Auction House, and Ride-Along mount preferences will live here.")
     elseif key == "blacklist" then
         return CreateFallbackPanel(parent, "Blacklist", "Blacklist search and remove controls will live here.")
+    elseif key == "preview" then
+        return CreateFallbackPanel(parent, "Preview", "Smart pick preview details will live here.")
     elseif key == "statistics" then
         return CreateFallbackPanel(parent, "Statistics", "Mount usage statistics will live here.")
     end
@@ -99,6 +205,8 @@ local function CreatePage(parent, key)
 end
 
 local function ShowPage(name)
+    RandomSmartMountUI.currentPage = name
+
     for pageName, page in pairs(pages) do
         page:SetShown(pageName == name)
 
@@ -120,8 +228,8 @@ end
 
 local function CreateSidebarButton(parent, text, pageName, index, iconName)
     local button = CreateFrame("Button", nil, parent)
-    button:SetSize(170, 40)
-    button:SetPoint("TOPLEFT", 52, -210 - ((index - 1) * 48))
+    button:SetSize(SIDEBAR_BUTTON_WIDTH, SIDEBAR_BUTTON_HEIGHT)
+    button:SetPoint("TOPLEFT", SIDEBAR_X, SIDEBAR_TOP - ((index - 1) * SIDEBAR_BUTTON_GAP))
 
     local theme = RandomSmartMountUI.Theme
 
@@ -140,13 +248,13 @@ local function CreateSidebarButton(parent, text, pageName, index, iconName)
 
     if iconName and theme and theme.GetIcon then
         button.icon = button:CreateTexture(nil, "OVERLAY")
-        button.icon:SetSize(26, 26)
+        button.icon:SetSize(24, 24)
         button.icon:SetPoint("LEFT", 10, 0)
         button.icon:SetTexture(theme.GetIcon(iconName))
     end
 
     button.text = button:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    button.text:SetPoint("LEFT", 48, 0)
+    button.text:SetPoint("LEFT", 44, 0)
     button.text:SetText(text)
 
     button:SetScript("OnClick", function()
@@ -187,7 +295,7 @@ local function CreateMainWindow()
     local frame = CreateFrame("Frame", "RandomSmartMountMainWindow", UIParent, "BasicFrameTemplateWithInset")
     table.insert(UISpecialFrames, "RandomSmartMountMainWindow")
 
-    frame:SetSize(840, 580)
+    frame:SetSize(WINDOW_WIDTH, WINDOW_HEIGHT)
     frame:SetPoint("CENTER")
 
     frame.customBg = frame:CreateTexture(nil, "BORDER")
@@ -211,45 +319,41 @@ local function CreateMainWindow()
     frame:SetScript("OnDragStop", frame.StopMovingOrSizing)
     frame:Hide()
 
-	frame.TitleText:Hide()
+    frame.TitleText:Hide()
 
-	-- Main Title
-	local mainTitle = frame:CreateFontString(nil, "ARTWORK")
+    local contentPanel = CreateFrame("Frame", nil, frame, "BackdropTemplate")
+    contentPanel:SetPoint("TOPLEFT", frame, "TOPLEFT", CONTENT_LEFT - 10, CONTENT_TOP)
+    contentPanel:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", CONTENT_RIGHT, CONTENT_BOTTOM)
+    contentPanel:SetBackdrop({
+        bgFile = "Interface\\Buttons\\WHITE8x8",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true,
+        tileSize = 16,
+        edgeSize = 12,
+        insets = { left = 3, right = 3, top = 3, bottom = 3 },
+    })
+    contentPanel:SetBackdropColor(0.02, 0.02, 0.02, 0.45)
+    contentPanel:SetBackdropBorderColor(0.85, 0.65, 0.35, 0.45)
+    frame.contentPanel = contentPanel
 
-	mainTitle:SetFont(
-		"Fonts\\FRIZQT__.TTF",
-		28,
-		"OUTLINE"
-	)
+    local navTitle = frame:CreateFontString(nil, "ARTWORK")
+    navTitle:SetFont("Fonts\\FRIZQT__.TTF", 15, "OUTLINE")
+    navTitle:SetPoint("TOPLEFT", frame, "TOPLEFT", SIDEBAR_X + 4, SIDEBAR_TOP + 22)
+    navTitle:SetText("Navigation")
+    navTitle:SetTextColor(1, 0.82, 0)
+    navTitle:SetShadowOffset(1, -1)
 
---	mainTitle:SetPoint("TOP", frame, "TOP", 0, -65)
---	mainTitle:SetText("Random Smart Mount")
---	mainTitle:SetTextColor(1.0, 0.82, 0)
+    local sidebarDivider = frame:CreateTexture(nil, "ARTWORK")
+    sidebarDivider:SetColorTexture(0.9, 0.65, 0.25, 0.35)
+    sidebarDivider:SetPoint("TOPLEFT", frame, "TOPLEFT", CONTENT_LEFT - 24, CONTENT_TOP + 2)
+    sidebarDivider:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", CONTENT_LEFT - 24, CONTENT_BOTTOM + 2)
+    sidebarDivider:SetWidth(1)
 
-	-- Subtitle
-	local subTitle = frame:CreateFontString(nil, "ARTWORK")
-
-	subTitle:SetFont(
-		"Fonts\\FRIZQT__.TTF",
-		16,
-		"OUTLINE"
-	)
-
---	subTitle:SetPoint("TOP", mainTitle, "BOTTOM", 0, -2)
---	subTitle:SetText("Control Center")
---	subTitle:SetTextColor(1.0, 0.82, 0)
-
-	local sidebarDivider = frame:CreateTexture(nil, "ARTWORK")
-	sidebarDivider:SetColorTexture(0.9, 0.65, 0.25, 0.35)
-	sidebarDivider:SetPoint("TOPLEFT", frame, "TOPLEFT", 250, -170)
-	sidebarDivider:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 250, 88)
-	sidebarDivider:SetWidth(1)
-
-	local dividerGlow = frame:CreateTexture(nil, "ARTWORK")
-	dividerGlow:SetColorTexture(1, 0.45, 0.1, 0.12)
-	dividerGlow:SetPoint("TOPLEFT", sidebarDivider, "TOPRIGHT", 1, 0)
-	dividerGlow:SetPoint("BOTTOMLEFT", sidebarDivider, "BOTTOMRIGHT", 1, 0)
-	dividerGlow:SetWidth(2)
+    local dividerGlow = frame:CreateTexture(nil, "ARTWORK")
+    dividerGlow:SetColorTexture(1, 0.45, 0.1, 0.12)
+    dividerGlow:SetPoint("TOPLEFT", sidebarDivider, "TOPRIGHT", 1, 0)
+    dividerGlow:SetPoint("BOTTOMLEFT", sidebarDivider, "BOTTOMRIGHT", 1, 0)
+    dividerGlow:SetWidth(2)
 	
     RandomSmartMountUI.frame = frame
 
@@ -287,8 +391,6 @@ loader:SetScript("OnEvent", function()
     if RandomSmartMountUI.CreateMinimapButton then
         RandomSmartMountUI.CreateMinimapButton()
     end
-
-    Print("UI loaded. Use /rsmui or right-click the minimap button.")
 end)
 
 SLASH_RANDOMSMARTMOUNTUI1 = "/rsmui"
