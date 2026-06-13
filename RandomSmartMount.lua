@@ -1237,15 +1237,6 @@ local function MatchTargetMount()
         return true
     end
 
-    if IsPlayerMounted() then
-        if Dismount then
-            Dismount()
-        end
-
-        Print("Dismounted. Click Match Target Mount again to summon " .. tostring(match.mountName or match.mountID) .. ".")
-        return false
-    end
-
     SummonTrackedMount(match.mountID)
     Print("Matching target mount: " .. tostring(match.mountName or match.mountID) .. ".")
     return true
