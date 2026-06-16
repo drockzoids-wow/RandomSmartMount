@@ -1,4 +1,4 @@
-## Interface: 120005, 120007
+## Interface: 120007
 ## Title: Random Smart Mount
 ## Notes: Smart mount keybinds, service mounts, falling rescue, and balanced randomization.
 ## Author: Drockzoids
