@@ -81,11 +81,6 @@ local FLYING_MOUNT_TYPES = {
 
 local WATER_MOUNT_TYPES = {
     [231] = true,
-    [232] = true,
-    [254] = true,
-    [407] = true,
-    [408] = true,
-    [412] = true,
 }
 
 RSM_RIDE_ALONG_MOUNT_POOLS = {
@@ -880,21 +875,63 @@ local function IsWaterMount(mountID)
     return WATER_MOUNT_TYPES[mountTypeID] == true
 end
 
-local function GetBreathTimerScale()
+local function GetBreathTimerState()
     if not GetMirrorTimerInfo then
-        return nil
+        return nil, nil, nil
     end
 
     local timerCount = MIRRORTIMER_NUMTIMERS or 3
 
     for i = 1, timerCount do
-        local timer, _, _, scale = GetMirrorTimerInfo(i)
+        local timer, value, maxValue, scale = GetMirrorTimerInfo(i)
         if timer == "BREATH" then
-            return scale
+            return value, maxValue, scale
         end
     end
 
-    return nil
+    return nil, nil, nil
+end
+
+local function HasActiveUnderwaterBreathTimer()
+    local _, _, scale = GetBreathTimerState()
+    return scale ~= nil and scale < 0
+end
+
+local function CallOptionalBooleanFunction(fn)
+    if type(fn) ~= "function" then
+        return nil
+    end
+
+    local ok, value = pcall(fn)
+    if not ok then
+        return nil
+    end
+
+    return value == true
+end
+
+local function GetFloatingState()
+    local floating = CallOptionalBooleanFunction(IsFloating)
+    if floating ~= nil then
+        return floating, "IsFloating"
+    end
+
+    floating = CallOptionalBooleanFunction(mnt_isFloating)
+    if floating ~= nil then
+        return floating, "mnt_isFloating"
+    end
+
+    return nil, nil
+end
+
+local function FormatFloatingState()
+    local floating, source = GetFloatingState()
+
+    if source then
+        return tostring(floating) .. " (" .. source .. ")"
+    end
+
+    return "nil"
 end
 
 local function IsPlayerSwimmingAtSurface()
@@ -902,29 +939,35 @@ local function IsPlayerSwimmingAtSurface()
         return false
     end
 
-    if IsSubmerged and IsSubmerged() then
-        return false
+    return not HasActiveUnderwaterBreathTimer()
+end
+
+local function IsPlayerSubmergedForMounts()
+    if HasActiveUnderwaterBreathTimer() then
+        return true
     end
 
-    local breathScale = GetBreathTimerScale()
-
-    if breathScale and breathScale < 0 then
-        return false
+    if IsSubmerged then
+        return IsSubmerged() == true and not IsPlayerSwimmingAtSurface()
     end
 
-    return IsFlyableArea and IsFlyableArea()
+    return false
 end
 
 local function IsPlayerUnderwaterForMounts()
-    if not IsSubmerged or not IsSubmerged() then
+    if not IsSwimming or not IsSwimming() then
         return false
     end
 
-    return true
+    return IsPlayerSubmergedForMounts()
 end
 
 local function CanFlyHere()
     return IsFlyableArea and IsFlyableArea()
+end
+
+local function IsFlyableWaterContext()
+    return (IsSwimming and IsSwimming() and CanFlyHere() and IsPlayerSwimmingAtSurface()) == true
 end
 
 local function RandomIndex(max)
@@ -1169,6 +1212,7 @@ local function BuildRandomSelectionSignature(pools, poolKey, poolMounts, filtere
         tostring(pools.canFly),
         tostring(pools.isSurface),
         tostring(pools.isUnderwater),
+        tostring(pools.isFlyableWater),
         tostring(pools.activeGroup or ""),
         tostring(db.randomFavoritesOnly),
         tostring(db.excludeServiceMountsFromRandom),
@@ -1176,6 +1220,7 @@ local function BuildRandomSelectionSignature(pools, poolKey, poolMounts, filtere
         tostring(GetRecentAvoidCount()),
         BuildRecentSignaturePart(),
         tostring(pools.all and #pools.all or 0),
+        tostring(pools.nonWater and #pools.nonWater or 0),
         tostring(poolMounts and #poolMounts or 0),
         tostring(filteredMounts and #filteredMounts or 0),
         tostring(counts.blacklisted or 0),
@@ -1449,20 +1494,27 @@ local function EnsureMountJournalLoaded()
     end
 end
 
-local function AddMountToRandomPools(pools, mountID)
+local function AddMountToRandomPools(pools, mountID, isFlyingMount, isWaterMount)
     pools.all[#pools.all + 1] = mountID
 
-    local isFlyingMount = IsFlyingMount(mountID)
-    local isWaterMount = IsWaterMount(mountID)
+    if isFlyingMount == nil then
+        isFlyingMount = IsFlyingMount(mountID)
+    end
+
+    if isWaterMount == nil then
+        isWaterMount = IsWaterMount(mountID)
+    end
 
     if isWaterMount then
         pools.water[#pools.water + 1] = mountID
+    else
+        pools.nonWater[#pools.nonWater + 1] = mountID
     end
 
-    if isFlyingMount then
+    if isFlyingMount and not isWaterMount then
         pools.flying[#pools.flying + 1] = mountID
 
-        if pools.isSurface then
+        if pools.canFly and (pools.isSurface or pools.isFlyableWater) then
             pools.surfaceFlying[#pools.surfaceFlying + 1] = mountID
         end
     elseif not isWaterMount then
@@ -1475,15 +1527,22 @@ local function BuildRandomMountPools()
 
     EnsureMountJournalLoaded()
 
+    local canFly = CanFlyHere()
+    local isSurface = IsPlayerSwimmingAtSurface()
+    local isUnderwater = IsPlayerUnderwaterForMounts()
+    local isFlyableWater = IsFlyableWaterContext()
+
     local pools = {
         all = {},
+        nonWater = {},
         ground = {},
         flying = {},
         surfaceFlying = {},
         water = {},
-        isSurface = IsPlayerSwimmingAtSurface(),
-        isUnderwater = IsPlayerUnderwaterForMounts(),
-        canFly = CanFlyHere(),
+        isSurface = isSurface,
+        isUnderwater = isUnderwater,
+        isFlyableWater = isFlyableWater,
+        canFly = canFly,
         activeGroup = GetActiveMountGroup(),
         counts = {
             scanned = 0,
@@ -1512,17 +1571,27 @@ local function BuildRandomMountPools()
         elseif IsMountBlacklisted(mountID) then
             pools.counts.blacklisted = pools.counts.blacklisted + 1
         else
-            local isUnderwaterWaterMount = pools.isUnderwater and IsWaterMount(mountID)
+            local isFlyingMount = IsFlyingMount(mountID)
+            local isWaterMount = IsWaterMount(mountID)
+            local isContextWaterMount =
+                (pools.isUnderwater or (pools.isSurface and not pools.canFly))
+                and isWaterMount
+            local isSurfaceFlyingMount =
+                (pools.isSurface or pools.isFlyableWater)
+                and pools.canFly
+                and isFlyingMount
+                and not isWaterMount
+            local bypassGroupAndFavorites = isContextWaterMount or isSurfaceFlyingMount
 
             if db.excludeServiceMountsFromRandom ~= false and IsServiceMountName(name) then
                 pools.counts.serviceExcluded = pools.counts.serviceExcluded + 1
-            elseif not isUnderwaterWaterMount and not MountPassesActiveGroup(mountID) then
+            elseif not bypassGroupAndFavorites and not MountPassesActiveGroup(mountID) then
                 pools.counts.groupExcluded = pools.counts.groupExcluded + 1
-            elseif not isUnderwaterWaterMount and db.randomFavoritesOnly and not isFavorite then
+            elseif not bypassGroupAndFavorites and db.randomFavoritesOnly and not isFavorite then
                 pools.counts.favoritesExcluded = pools.counts.favoritesExcluded + 1
             else
                 pools.counts.collectedUsable = pools.counts.collectedUsable + 1
-                AddMountToRandomPools(pools, mountID)
+                AddMountToRandomPools(pools, mountID, isFlyingMount, isWaterMount)
             end
         end
     end
@@ -1533,12 +1602,20 @@ end
 local function GetPreferredRandomPool(pools, options)
     options = options or {}
 
-    if pools.isUnderwater and (#pools.water > 0 or options.waterOnly) then
+    if pools.isUnderwater then
         return "water", "underwater", pools.water
     end
 
-    if pools.isSurface and #pools.surfaceFlying > 0 then
+    if pools.isFlyableWater and pools.canFly and #pools.surfaceFlying > 0 then
         return "surfaceFlying", "surface flying", pools.surfaceFlying
+    end
+
+    if (pools.isSurface or pools.isFlyableWater) and pools.canFly and #pools.surfaceFlying > 0 then
+        return "surfaceFlying", "surface flying", pools.surfaceFlying
+    end
+
+    if (pools.isSurface or pools.isFlyableWater) and not pools.canFly and #pools.water > 0 then
+        return "surfaceWater", "surface water", pools.water
     end
 
     if pools.canFly and #pools.flying > 0 then
@@ -1549,8 +1626,8 @@ local function GetPreferredRandomPool(pools, options)
         return "ground", "ground", pools.ground
     end
 
-    if #pools.all > 0 then
-        return "all", "all eligible", pools.all
+    if #pools.nonWater > 0 then
+        return "nonWater", "all non-water eligible", pools.nonWater
     end
 
     return nil, nil, {}
@@ -1709,6 +1786,19 @@ local function FindUsableMountByName(wantedName)
     return nil
 end
 
+local function ShouldSkipWaterMountForSurfaceFlying(mountID)
+    if not (IsPlayerSwimmingAtSurface() or IsFlyableWaterContext()) or not IsWaterMount(mountID) then
+        return false
+    end
+
+    if CanFlyHere() then
+        return true
+    end
+
+    local pools = BuildRandomMountPools()
+    return pools.surfaceFlying and #pools.surfaceFlying > 0
+end
+
 local function BoolText(value)
     return value and "yes" or "no"
 end
@@ -1725,10 +1815,13 @@ local function AddRandomSelectionPreviewLines(preview, selection)
 
     AddPreviewLine(preview, "Flyable area: " .. BoolText(pools.canFly))
     AddPreviewLine(preview, "Swimming at surface: " .. BoolText(pools.isSurface))
+    AddPreviewLine(preview, "Flyable water: " .. BoolText(pools.isFlyableWater))
     AddPreviewLine(preview, "Underwater: " .. BoolText(pools.isUnderwater))
 
-    if pools.isUnderwater and selection.poolKey == "water" and activeGroup then
-        AddPreviewLine(preview, "Active group: ignored underwater")
+    if activeGroup and selection.poolKey == "surfaceFlying" then
+        AddPreviewLine(preview, "Active group: ignored at flyable surface")
+    elseif activeGroup and (selection.poolKey == "water" or selection.poolKey == "surfaceWater") then
+        AddPreviewLine(preview, "Active group: ignored for water")
     else
         AddPreviewLine(preview, "Active group: " .. (activeGroup or "All eligible mounts"))
     end
@@ -1810,15 +1903,6 @@ local function GetSmartMountPreview()
         return preview
     end
 
-    if db.useDruidTravelForm and class == "DRUID" then
-        local spellName = GetSpellName(db.druidTravelSpellID)
-        if spellName and IsSpellKnownByPlayer(db.druidTravelSpellID) and SpellUsable(db.druidTravelSpellID) then
-            preview.summary = "Would cast: " .. spellName
-            AddPreviewLine(preview, preview.summary)
-            return preview
-        end
-    end
-
     if IsPlayerUnderwaterForMounts() then
         local selection = BuildRandomMountSelection({ reserveSelection = true, waterOnly = true })
 
@@ -1834,7 +1918,16 @@ local function GetSmartMountPreview()
         end
     end
 
-    if db.useDracthyrSoar and race == "Dracthyr" and not IsPlayerUnderwaterForMounts() then
+    if db.useDruidTravelForm and class == "DRUID" then
+        local spellName = GetSpellName(db.druidTravelSpellID)
+        if spellName and IsSpellKnownByPlayer(db.druidTravelSpellID) and SpellUsable(db.druidTravelSpellID) then
+            preview.summary = "Would cast: " .. spellName
+            AddPreviewLine(preview, preview.summary)
+            return preview
+        end
+    end
+
+    if db.useDracthyrSoar and race == "Dracthyr" and (not IsPlayerUnderwaterForMounts() or IsFlyableWaterContext()) then
         local spellName = GetSpellName(db.dracthyrSoarSpellID)
         if CanFlyHere() and spellName and IsSpellKnownByPlayer(db.dracthyrSoarSpellID) and SpellUsable(db.dracthyrSoarSpellID) then
             preview.summary = "Would cast: " .. spellName
@@ -1847,14 +1940,18 @@ local function GetSmartMountPreview()
         local preferredMountID, preferredMountName = FindUsableMountByName(db.preferredMount)
 
         if preferredMountID then
-            preview.summary = "Would summon preferred mount: " .. tostring(preferredMountName)
-            preview.mountID = preferredMountID
-            preview.mountName = preferredMountName
-            AddPreviewLine(preview, preview.summary)
-            return preview
+            if ShouldSkipWaterMountForSurfaceFlying(preferredMountID) then
+                AddPreviewLine(preview, "Preferred mount skipped: water mount at flyable surface.")
+            else
+                preview.summary = "Would summon preferred mount: " .. tostring(preferredMountName)
+                preview.mountID = preferredMountID
+                preview.mountName = preferredMountName
+                AddPreviewLine(preview, preview.summary)
+                return preview
+            end
+        else
+            AddPreviewLine(preview, "Preferred mount unavailable: " .. tostring(db.preferredMount))
         end
-
-        AddPreviewLine(preview, "Preferred mount unavailable: " .. tostring(db.preferredMount))
     end
 
     local selection = BuildRandomMountSelection({ reserveSelection = true })
@@ -1913,13 +2010,6 @@ local function BuildSmartMountMacro()
         return BuildChatMessageMacro("You are indoors.")
     end
 
-    if db.useDruidTravelForm and class == "DRUID" then
-        local spellName = GetSpellName(db.druidTravelSpellID)
-        if spellName and IsSpellKnownByPlayer(db.druidTravelSpellID) and SpellUsable(db.druidTravelSpellID) then
-            return SMART_MOUNT_MACRO_PREFIX .. "/cast " .. spellName
-        end
-    end
-
     if IsPlayerUnderwaterForMounts() then
         local selection = BuildRandomMountSelection({ useReservation = true, waterOnly = true })
         if selection.mountID then
@@ -1927,7 +2017,14 @@ local function BuildSmartMountMacro()
         end
     end
 
-    if db.useDracthyrSoar and race == "Dracthyr" and not IsPlayerUnderwaterForMounts() then
+    if db.useDruidTravelForm and class == "DRUID" then
+        local spellName = GetSpellName(db.druidTravelSpellID)
+        if spellName and IsSpellKnownByPlayer(db.druidTravelSpellID) and SpellUsable(db.druidTravelSpellID) then
+            return SMART_MOUNT_MACRO_PREFIX .. "/cast " .. spellName
+        end
+    end
+
+    if db.useDracthyrSoar and race == "Dracthyr" and (not IsPlayerUnderwaterForMounts() or IsFlyableWaterContext()) then
         local spellName = GetSpellName(db.dracthyrSoarSpellID)
         if CanFlyHere() and spellName and IsSpellKnownByPlayer(db.dracthyrSoarSpellID) and SpellUsable(db.dracthyrSoarSpellID) then
             return SMART_MOUNT_MACRO_PREFIX .. "/cast " .. spellName
@@ -1939,7 +2036,7 @@ local function BuildSmartMountMacro()
 	if db.preferredMount and db.preferredMount ~= "" then
 		local preferredMountID = FindUsableMountByName(db.preferredMount)
 
-		if preferredMountID then
+		if preferredMountID and not ShouldSkipWaterMountForSurfaceFlying(preferredMountID) then
 			return BuildSummonMountMacro(preferredMountID)
 		end
 	end
@@ -2131,6 +2228,7 @@ local function HandleSlashCommand(msg)
 
     if msg == "debug" then
         local fallingAction = GetFallingRescueAction()
+        local breathValue, breathMaxValue, breathScale = GetBreathTimerState()
 
         Reply("Class: " .. tostring(PlayerClass()))
         Reply("Race: " .. tostring(PlayerRace()))
@@ -2139,9 +2237,13 @@ local function HandleSlashCommand(msg)
         Reply("FallingAction: " .. tostring(fallingAction and fallingAction.spell))
         Reply("Swimming: " .. tostring(IsSwimming and IsSwimming()))
         Reply("Submerged: " .. tostring(IsSubmerged and IsSubmerged()))
-        Reply("BreathScale: " .. tostring(GetBreathTimerScale()))
-        Reply("SurfaceWater: " .. tostring(IsPlayerSwimmingAtSurface()))
+        Reply("Floating: " .. FormatFloatingState())
+        Reply("BreathValue: " .. tostring(breathValue))
+        Reply("BreathMax: " .. tostring(breathMaxValue))
+        Reply("BreathScale: " .. tostring(breathScale))
+        Reply("SwimmingAtSurface: " .. tostring(IsPlayerSwimmingAtSurface()))
         Reply("UnderwaterForMounts: " .. tostring(IsPlayerUnderwaterForMounts()))
+        Reply("FlyableWaterContext: " .. tostring(IsFlyableWaterContext()))
         Reply("Flyable: " .. tostring(CanFlyHere()))
         Reply("UsageEntries: " .. tostring(CountUsageEntries()))
         Reply("TotalUses: " .. tostring(GetTotalMountUses()))
@@ -2194,13 +2296,32 @@ local function HandleSlashCommand(msg)
     end
 
 	if msg == "pickdebug" then
-		local mountID, availableCount = PickRandomMountID()
+		local selection = BuildRandomMountSelection({ useReservation = true })
+		local pools = selection.pools or {}
+		local mountID = selection.mountID
+		local breathValue, breathMaxValue, breathScale = GetBreathTimerState()
 
 		Reply("Pick Debug")
-		Reply("Available pool size: " .. tostring(availableCount))
+		Reply("Flyable: " .. tostring(pools.canFly))
+		Reply("Submerged: " .. tostring(IsSubmerged and IsSubmerged()))
+		Reply("Floating: " .. FormatFloatingState())
+		Reply("SwimmingAtSurface: " .. tostring(pools.isSurface))
+		Reply("UnderwaterForMounts: " .. tostring(pools.isUnderwater))
+		Reply("FlyableWaterContext: " .. tostring(pools.isFlyableWater))
+		Reply("BreathValue: " .. tostring(breathValue))
+		Reply("BreathMax: " .. tostring(breathMaxValue))
+		Reply("BreathScale: " .. tostring(breathScale))
+		Reply("Selected pool: " .. tostring(selection.poolLabel) .. " (" .. tostring(selection.poolSize or 0) .. ")")
+		Reply("Available pool size: " .. tostring(selection.availableCount or 0))
+		Reply("Flying pool: " .. tostring(pools.flying and #pools.flying or 0))
+		Reply("Surface flying pool: " .. tostring(pools.surfaceFlying and #pools.surfaceFlying or 0))
+		Reply("Water pool: " .. tostring(pools.water and #pools.water or 0))
 
 		if mountID then
 			Reply("Selected mount: " .. tostring(GetMountName(mountID)) .. " (" .. tostring(mountID) .. ")")
+			Reply("Mount type ID: " .. tostring(GetMountTypeID(mountID)))
+			Reply("Classified flying: " .. tostring(IsFlyingMount(mountID)))
+			Reply("Classified water: " .. tostring(IsWaterMount(mountID)))
 			Reply("Usage count: " .. tostring(GetMountUsage(mountID)))
 			Reply("Weight: " .. tostring(1 / math.sqrt(GetMountUsage(mountID) + 1)))
 		else
